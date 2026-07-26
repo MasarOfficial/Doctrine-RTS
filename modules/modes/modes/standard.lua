@@ -1,0 +1,31 @@
+local ModeDSL = VFS.Include("modules/modes/mode_dsl.lua") ---@type GameModeDSL
+local Mode = ModeDSL.Mode
+
+-- Pins nothing, fields no bot. Ranked, because this preset IS standard
+-- multiplayer and picking it must not cost anyone their rating.
+return Mode("Standard")
+	.Desc("An ordinary game: no scripted mission, no PvE swarm.")
+	.Ranked()
+	.End("com")
+	.Unlocked()
+	.MaxUnits(2000)
+	.Draft("random")
+	.Unlocked()
+	.Anonymous("disabled")
+	.Unlocked()
+	.PausedCommands(true)
+	.Unlocked()
+	.CustomWidgets(true)
+	.Unlocked()
+	.UnitControlWidgets(true)
+	.Unlocked()
+	.FixedAlliances(true)
+	.Unlocked()
+	.MapDeformation(true)
+	.Unlocked()
+	.FogOfWar(true)
+	.Unlocked()
+	.NoRush(0)
+	.SlowComTransport(false)
+	.Unlocked()
+	.Restrictions()
