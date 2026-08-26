@@ -32,6 +32,9 @@ _G.Spring.GetGaiaTeamID = _G.Spring.GetGaiaTeamID or function() return 2 end
 _G.Spring.GetAllyTeamList = _G.Spring.GetAllyTeamList or function() return { 0, 1, 2 } end
 _G.Spring.GetTeamAllyTeamID = _G.Spring.GetTeamAllyTeamID or function(teamID) return teamID end
 
+-- The objectives module logs warnings for misused lifecycle actions.
+_G.Spring.Log = _G.Spring.Log or function() end
+
 -- Sim frames per second, which seismic_contacts reads at load for its update interval.
 _G.Game.gameSpeed = _G.Game.gameSpeed or 30
 

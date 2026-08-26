@@ -968,6 +968,128 @@ describe("mission_api.validation", function()
 			assert.is_false(hasError("Stage is unreachable: not the initial stage, and no ChangeStage action targets it. Stage: reachedStage"))
 		end)
 
+		it("logs an error for an objective not listed in any stage", function()
+			GG["MissionAPI"].Objectives = {
+				listed   = { textKey = "ok" },
+				unlisted = { textKey = "ok" },
+			}
+			GG["MissionAPI"].Stages = {
+				stage = { objectives = { 'listed' } },
+			}
+			validation.ValidateReferences()
+			assert.is_true(hasError("Objective is not listed in any stage. Objective: unlisted"))
+			assert.is_false(hasError("Objective is not listed in any stage. Objective: listed"))
+		end)
+
+		it("skips the stage membership rule when no stages are defined", function()
+			GG["MissionAPI"].Objectives = {
+				solo = { textKey = "ok" },
+			}
+			GG["MissionAPI"].Stages = {}
+			validation.ValidateReferences()
+			assert.is_false(hasError("Objective is not listed in any stage. Objective: solo"))
+		end)
+
+		it("warns when a stage has no exit", function()
+			GG["MissionAPI"].Objectives = { obj1 = { textKey = "ok" } }
+			GG["MissionAPI"].Stages = { parked = { objectives = { 'obj1' } } }
+			GG["MissionAPI"].CurrentStageID = 'parked'
+			validation.ValidateReferences()
+			assert.is_true(hasError("Stage has no exit: no trigger in this stage leads to ChangeStage, Victory, or Defeat. Stage: parked"))
+		end)
+
+		it("warns when a stage's only exits can dead-end on a failable objective", function()
+			GG["MissionAPI"].Objectives = { obj1 = { textKey = "ok" } }
+			GG["MissionAPI"].Stages = { risky = { objectives = { 'obj1' } } }
+			GG["MissionAPI"].CurrentStageID = 'risky'
+			GG["MissionAPI"].Triggers = {
+				onWin = {
+					type       = triggerTypes.ObjectiveCompleted,
+					settings   = { stages = {} },
+					parameters = { objectiveIDs = { 'obj1' } },
+					actions    = { 'win' },
+				},
+				failer = {
+					type       = triggerTypes.TimeElapsed,
+					settings   = { stages = {} },
+					parameters = { seconds = 5 },
+					actions    = { 'failIt' },
+				},
+			}
+			GG["MissionAPI"].Actions = {
+				win    = { type = actionTypes.Victory, parameters = { allyTeamIDs = { 0 } } },
+				failIt = { type = actionTypes.SetObjectiveFailed, parameters = { objectiveID = 'obj1' } },
+			}
+			validation.ValidateReferences()
+			assert.is_true(hasError("Stage can dead-end: its exits require completing an objective that can fail, and its failure exits nothing. Stage: risky, Objective: obj1"))
+		end)
+
+		it("does not warn about dead-ends when an ObjectiveFailed exit compensates", function()
+			GG["MissionAPI"].Objectives = { obj1 = { textKey = "ok" } }
+			GG["MissionAPI"].Stages = { risky = { objectives = { 'obj1' } } }
+			GG["MissionAPI"].CurrentStageID = 'risky'
+			GG["MissionAPI"].Triggers = {
+				onWin = {
+					type       = triggerTypes.ObjectiveCompleted,
+					settings   = { stages = {} },
+					parameters = { objectiveIDs = { 'obj1' } },
+					actions    = { 'win' },
+				},
+				onFail = {
+					type       = triggerTypes.ObjectiveFailed,
+					settings   = { stages = {} },
+					parameters = { objectiveIDs = { 'obj1' } },
+					actions    = { 'lose' },
+				},
+				failer = {
+					type       = triggerTypes.TimeElapsed,
+					settings   = { stages = {} },
+					parameters = { seconds = 5 },
+					actions    = { 'failIt' },
+				},
+			}
+			GG["MissionAPI"].Actions = {
+				win    = { type = actionTypes.Victory, parameters = { allyTeamIDs = { 0 } } },
+				lose   = { type = actionTypes.Defeat, parameters = { allyTeamIDs = { 0 } } },
+				failIt = { type = actionTypes.SetObjectiveFailed, parameters = { objectiveID = 'obj1' } },
+			}
+			validation.ValidateReferences()
+			assert.is_false(hasError("Stage can dead-end: its exits require completing an objective that can fail, and its failure exits nothing. Stage: risky, Objective: obj1"))
+		end)
+
+		it("does not warn about dead-ends when an exit is not gated on objectives", function()
+			GG["MissionAPI"].Objectives = { obj1 = { textKey = "ok" } }
+			GG["MissionAPI"].Stages = { safe = { objectives = { 'obj1' } } }
+			GG["MissionAPI"].CurrentStageID = 'safe'
+			GG["MissionAPI"].Triggers = {
+				onWin = {
+					type       = triggerTypes.ObjectiveCompleted,
+					settings   = { stages = {} },
+					parameters = { objectiveIDs = { 'obj1' } },
+					actions    = { 'win' },
+				},
+				timeout = {
+					type       = triggerTypes.TimeElapsed,
+					settings   = { stages = {} },
+					parameters = { seconds = 60 },
+					actions    = { 'lose' },
+				},
+				failer = {
+					type       = triggerTypes.TimeElapsed,
+					settings   = { stages = {} },
+					parameters = { seconds = 5 },
+					actions    = { 'failIt' },
+				},
+			}
+			GG["MissionAPI"].Actions = {
+				win    = { type = actionTypes.Victory, parameters = { allyTeamIDs = { 0 } } },
+				lose   = { type = actionTypes.Defeat, parameters = { allyTeamIDs = { 0 } } },
+				failIt = { type = actionTypes.SetObjectiveFailed, parameters = { objectiveID = 'obj1' } },
+			}
+			validation.ValidateReferences()
+			assert.is_false(hasError("Stage can dead-end: its exits require completing an objective that can fail, and its failure exits nothing. Stage: safe, Objective: obj1"))
+		end)
+
 		it("does not log non-existent objective for non-string stage objective entries", function()
 			GG['MissionAPI'].Objectives = {
 				obj1 = { textKey = "ok" },

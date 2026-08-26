@@ -4,13 +4,13 @@ local actionTypes = GG['MissionAPI'].ActionDefinitions.Types
 local initialStage = 'firstStage'
 local stages = {
 	firstStage = {
-		objectives = { 'wait3secs' }
+		objectives = { 'wait3secs', 'hurry', 'sneaky' }
 	},
 	secondStage = {
-		objectives = { 'buildBots' }
+		objectives = { 'buildBots', 'sneaky' }
 	},
 	thirdStage = {
-		objectives = { 'buildBots', 'destroyBots' }
+		objectives = { 'buildBots', 'destroyBots', 'noLosses', 'sneaky' }
 	}
 }
 
@@ -22,6 +22,30 @@ local objectives = {
 			type = triggerTypes.TimeElapsed,
 			parameters = {
 				seconds = 3,
+			},
+		},
+	},
+
+	-- Not completable before the stage change.
+	hurry = {
+		textKey = "build_a_bot_quickly",
+		trigger = {
+			type = triggerTypes.ConstructionFinished,
+			parameters = {
+				unitDefName = 'corak',
+				teamID = 0,
+			},
+		},
+	},
+
+	-- Hidden for the whole mission, so its managed count accrues in every stage.
+	sneaky = {
+		textKey = "secretly_kill_two",
+		amount = 2,
+		trigger = {
+			type = triggerTypes.TotalUnitsKilled,
+			parameters = {
+				teamID = 0,
 			},
 		},
 	},
@@ -49,16 +73,29 @@ local objectives = {
 			},
 		},
 	},
+
+	-- No inline trigger: failed by the failOnLoss trigger below.
+	noLosses = {
+		textKey = "lose_no_units",
+	},
 }
 
 local triggers = {
+
+	startObjectives = {
+		type = triggerTypes.TimeElapsed,
+		parameters = {
+			seconds = 0,
+		},
+		actions = { 'addWait3secs', 'addHurry', 'addSneaky', 'hideSneaky' },
+	},
 
 	advanceOnWait = {
 		type = triggerTypes.ObjectiveCompleted,
 		parameters = {
 			objectiveIDs = { 'wait3secs' },
 		},
-		actions = { 'changeToSecondStage' },
+		actions = { 'changeToSecondStage', 'addBuildBots' },
 	},
 
 	spawnBots = {
@@ -80,11 +117,112 @@ local triggers = {
 		parameters = {
 			seconds = 7,
 		},
-		actions = { 'changeToThirdStage', 'spawnBotDestroyer' },
+		actions = { 'changeToThirdStage', 'addDestroyBots', 'addNoLosses', 'spawnBotDestroyer' },
+	},
+
+	failOnLoss = {
+		type = triggerTypes.TotalUnitsLost,
+		settings = {
+			stages = { 'thirdStage' },
+		},
+		parameters = {
+			teamID = 0,
+			quantity = 1,
+		},
+		actions = { 'failNoLosses' },
+	},
+
+	reportFailure = {
+		type = triggerTypes.ObjectiveFailed,
+		parameters = {
+			objectiveIDs = { 'noLosses' },
+		},
+		actions = { 'announceLoss' },
+	},
+
+	winOnObjectives = {
+		type = triggerTypes.ObjectiveCompleted,
+		parameters = {
+			objectiveIDs = { 'buildBots', 'destroyBots' },
+		},
+		actions = { 'victory' },
 	},
 }
 
 local actions = {
+
+	addWait3secs = {
+		type = actionTypes.AddObjective,
+		parameters = {
+			objectiveID = 'wait3secs',
+		},
+	},
+
+	addHurry = {
+		type = actionTypes.AddObjective,
+		parameters = {
+			objectiveID = 'hurry',
+			optional = true,
+		},
+	},
+
+	addSneaky = {
+		type = actionTypes.AddObjective,
+		parameters = {
+			objectiveID = 'sneaky',
+			optional = true,
+		},
+	},
+
+	hideSneaky = {
+		type = actionTypes.SetObjectiveHidden,
+		parameters = {
+			objectiveID = 'sneaky',
+		},
+	},
+
+	addBuildBots = {
+		type = actionTypes.AddObjective,
+		parameters = {
+			objectiveID = 'buildBots',
+		},
+	},
+
+	addDestroyBots = {
+		type = actionTypes.AddObjective,
+		parameters = {
+			objectiveID = 'destroyBots',
+		},
+	},
+
+	addNoLosses = {
+		type = actionTypes.AddObjective,
+		parameters = {
+			objectiveID = 'noLosses',
+			optional = true,
+		},
+	},
+
+	failNoLosses = {
+		type = actionTypes.SetObjectiveFailed,
+		parameters = {
+			objectiveID = 'noLosses',
+		},
+	},
+
+	announceLoss = {
+		type = actionTypes.SendMessage,
+		parameters = {
+			message = "A unit was lost. Optional objective failed.",
+		},
+	},
+
+	victory = {
+		type = actionTypes.Victory,
+		parameters = {
+			allyTeamIDs = { 0 },
+		},
+	},
 
 	changeToSecondStage = {
 		type = actionTypes.ChangeStage,
