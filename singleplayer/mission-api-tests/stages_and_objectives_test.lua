@@ -24,7 +24,6 @@ local objectives = {
 				seconds = 3,
 			},
 		},
-		nextStage = 'secondStage',
 	},
 
 	buildBots = {

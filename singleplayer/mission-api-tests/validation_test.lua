@@ -58,10 +58,6 @@ local objectives = {
 		},
 	},
 
-	objectiveWithInvalidNextStage = {
-		textKey = "invalid_next_stage",
-		nextStage = 'nonExistentStage',  -- error: nonExistentStage is not defined in Stages
-	},
 
 	objectiveWithTriggerHavingActions = {
 		textKey = "trigger_must_not_have_actions",

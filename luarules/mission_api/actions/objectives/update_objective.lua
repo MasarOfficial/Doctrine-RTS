@@ -15,10 +15,6 @@ local function updateObjective(objectiveID, completed, textKey)
 		objective.progress = (objective.progress or 0) + 1
 		objective.completed = objective.amount == nil or objective.progress >= objective.amount
 	end
-
-	local objectives = GG['MissionAPI'].Modules.Objectives
-	objectives.TryAdvanceStage(objective)
-	objectives.EchoObjectiveUpdate(objectiveID, objective)
 end
 
 return {

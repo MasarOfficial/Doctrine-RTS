@@ -596,7 +596,7 @@ end
 
 local function validateObjectiveSchemaFields(objective, objectiveIDText)
 	for fieldName, fieldType in pairs(objectivesSchemaSettings) do
-		if fieldName ~= 'nextStage' and objective[fieldName] ~= nil then
+		if objective[fieldName] ~= nil then
 			local validator = validators[fieldType]
 			local results = validator(objective[fieldName]) or {}
 			if #results > 0 then
@@ -775,18 +775,6 @@ local function validateStages(stages)
 	end
 end
 
-local function validateObjectiveNextStageReferences(objectives)
-	for objectiveID, objective in pairs(objectives) do
-		if type(objective) == 'table' and objective.nextStage ~= nil then
-			local objectiveIDText = tostring(objectiveID)
-			if type(objective.nextStage) ~= 'string' then
-				logError("Unexpected parameter type, expected string, got " .. type(objective.nextStage) .. ". Objective: " .. objectiveIDText .. ", Field: nextStage")
-			elseif GG['MissionAPI'].Stages[objective.nextStage] == nil then
-				logError("Objective references non-existent nextStage. Objective: " .. objectiveIDText .. ", Stage: " .. objective.nextStage)
-			end
-		end
-	end
-end
 
 ----------------------------------------------------------------
 --- Loadout Validation:
@@ -1178,7 +1166,6 @@ local function validateReferences()
 	local featureLoadout = GG['MissionAPI'].FeatureLoadout
 
 	validateStagesReferences(stages, objectives)
-	validateObjectiveNextStageReferences(objectives)
 	validateUnitNameReferences(actionTypes, objectives, triggers, actions, unitLoadout)
 	validateFeatureNameReferences(actionTypes, objectives, triggers, actions, featureLoadout)
 	validateMarkerNameReferences(actionTypes, actions)

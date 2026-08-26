@@ -224,12 +224,10 @@ describe("MissionApiBuilder", function()
             local objective = { textKey = "kill" }
 
             api.Modules.Objectives.ChangeStage("stage2")
-            api.Modules.Objectives.TryAdvanceStage(objective)
             api.Modules.Objectives.UpdateObjectiveProgress("obj1", 0, "armcom", { "bots" }, 1, { kind = "kills" })
             api.Modules.Objectives.EchoObjectiveUpdate("obj1", objective)
 
             assert.are.equal("stage2", api.calls.changeStage[1].stageID)
-            assert.are.same(objective, api.calls.tryAdvanceStage[1].objective)
 
             local progress = api.calls.updateObjectiveProgress[1]
             assert.are.equal("obj1",   progress.objectiveID)
@@ -252,7 +250,6 @@ describe("MissionApiBuilder", function()
             api.Modules.Sounds.EnqueueSound("b.wav")
             api.Modules.Sounds.ProcessSoundQueue(1)
             api.Modules.Objectives.ChangeStage("s")
-            api.Modules.Objectives.TryAdvanceStage({})
             api.Modules.Objectives.UpdateObjectiveProgress("o")
             api.Modules.Objectives.EchoObjectiveUpdate("o", {})
 
@@ -265,7 +262,6 @@ describe("MissionApiBuilder", function()
             assert.are.equal(0, #api.calls.enqueueSound)
             assert.are.equal(0, #api.calls.processSoundQueue)
             assert.are.equal(0, #api.calls.changeStage)
-            assert.are.equal(0, #api.calls.tryAdvanceStage)
             assert.are.equal(0, #api.calls.updateObjectiveProgress)
             assert.are.equal(0, #api.calls.echoObjectiveUpdate)
         end)
