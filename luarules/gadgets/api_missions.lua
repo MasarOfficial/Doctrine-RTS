@@ -26,7 +26,7 @@ local function loadMission(scriptPath)
 
 	GG['MissionAPI'].CurrentStageID = initialStage
 	GG['MissionAPI'].Stages = stagesController.ProcessRawStages(stages)
-	GG['MissionAPI'].Objectives = objectivesController.ProcessRawObjectives(rawObjectives, rawTriggers, rawActions, stages)
+	GG['MissionAPI'].Objectives = objectivesController.ProcessRawObjectives(rawObjectives, rawTriggers, rawActions)
 	GG['MissionAPI'].Triggers = triggersController.ProcessRawTriggers(rawTriggers)
 	GG['MissionAPI'].Actions = actionsController.ProcessRawActions(rawActions)
 	GG['MissionAPI'].UnitLoadout = mission.UnitLoadout

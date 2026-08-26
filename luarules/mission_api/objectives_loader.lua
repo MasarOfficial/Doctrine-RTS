@@ -15,28 +15,20 @@ local schemaUtils = VFS.Include('luarules/mission_api/schema_utils.lua')
 	},
 ]]
 
-local function processRawObjectives(rawObjectives, rawTriggers, rawActions, stages)
+local function processRawObjectives(rawObjectives, rawTriggers, rawActions)
 	local objectives = rawObjectives or {}
 
 	local actionTypes = GG['MissionAPI'].ActionDefinitions.Types
 	local triggerTypesWithQuantity = schemaUtils.GetTypesWithParameterType(GG['MissionAPI'].TriggerDefinitions.Parameters, parameterTypes.Types.Quantity)
 
-	-- Build objective-to-stages mapping from stages structure
-	local objectiveToStages = {}
-	for stageID, stageData in pairs(stages or {}) do
-		if type(stageData) == 'table' and type(stageData.objectives) == 'table' then
-			for _, objectiveID in ipairs(stageData.objectives) do
-				if not objectiveToStages[objectiveID] then
-					objectiveToStages[objectiveID] = {}
-				end
-				table.insert(objectiveToStages[objectiveID], stageID)
-			end
+	local States = GG['MissionAPI'].Modules.Objectives.States
+	for _, objective in pairs(objectives) do
+		if type(objective) == 'table' then
+			objective.state = States.Dormant
 		end
 	end
 
 	for objectiveID, objective in pairs(objectives) do
-		local objectiveStages = objectiveToStages[objectiveID] or {}
-
 		if type(objectiveID) == 'string' and type(objective) == 'table' and type(objective.trigger) == 'table' then
 			local amount = objective.amount
 			local triggerType = objective.trigger.type
@@ -47,7 +39,6 @@ local function processRawObjectives(rawObjectives, rawTriggers, rawActions, stag
 				table.ensureTable(GG['MissionAPI'].ManagedObjectives, triggerType)
 				table.insert(GG['MissionAPI'].ManagedObjectives[triggerType], {
 					objectiveID = objectiveID,
-					stages = objectiveStages,
 					parameters = triggerParameters,
 				})
 			else
@@ -60,7 +51,6 @@ local function processRawObjectives(rawObjectives, rawTriggers, rawActions, stag
 					type       = triggerType,
 					parameters = triggerParameters,
 					settings   = {
-						stages    = objectiveStages,
 						repeating = isRepeating,
 					},
 					actions = { actionID },

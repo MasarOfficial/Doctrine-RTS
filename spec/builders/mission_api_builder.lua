@@ -35,7 +35,12 @@ local PARAMETER_TYPES_PATH = 'luarules/mission_api/parameter_types.lua'
 ---@field enqueueSound table
 ---@field processSoundQueue table
 ---@field changeStage table
----@field setObjectiveCompleted table
+---@field addObjective table
+---@field hideObjective table
+---@field activateObjective table
+---@field cancelObjective table
+---@field failObjective table
+---@field completeObjective table
 ---@field incrementObjectiveProgress table
 ---@field updateObjectiveProgress table
 ---@field echoObjectiveUpdate table
@@ -122,7 +127,12 @@ end
 ---@param objective table
 ---@return MissionApiBuilder
 function MB:WithObjective(objectiveID, objective)
-    self.objectives[objectiveID] = objective or {}
+    objective = objective or {}
+    -- Declared objectives are dormant until added, mirroring the loader.
+    if objective.state == nil then
+        objective.state = 'dormant'
+    end
+    self.objectives[objectiveID] = objective
     return self
 end
 
@@ -286,11 +296,16 @@ function MB:Build()
     local playSoundCalls        = {}
     local enqueueSoundCalls     = {}
     local processSoundQueueCalls = {}
-    local changeStageCalls       = {}
-    local setCompletedCalls      = {}
-    local incrementProgressCalls = {}
-    local updateProgressCalls    = {}
-    local echoCalls              = {}
+    local changeStageCalls        = {}
+    local addObjectiveCalls       = {}
+    local hideObjectiveCalls      = {}
+    local activateObjectiveCalls  = {}
+    local cancelObjectiveCalls    = {}
+    local failObjectiveCalls      = {}
+    local completeObjectiveCalls  = {}
+    local incrementProgressCalls  = {}
+    local updateProgressCalls     = {}
+    local echoCalls               = {}
 
     local tracking = {
         TrackUnit = function(name, unitID)
@@ -358,11 +373,27 @@ function MB:Build()
     }
 
     local objectives = {
+        States = { Dormant = 'dormant', Active = 'active', Canceled = 'canceled', Failed = 'failed', Completed = 'completed' },
         ChangeStage = function(stageID)
             changeStageCalls[#changeStageCalls + 1] = { stageID = stageID }
         end,
-        SetObjectiveCompleted = function(objectiveID, completed)
-            setCompletedCalls[#setCompletedCalls + 1] = { objectiveID = objectiveID, completed = completed }
+        AddObjective = function(objectiveID, optional)
+            addObjectiveCalls[#addObjectiveCalls + 1] = { objectiveID = objectiveID, optional = optional }
+        end,
+        HideObjective = function(objectiveID)
+            hideObjectiveCalls[#hideObjectiveCalls + 1] = { objectiveID = objectiveID }
+        end,
+        ActivateObjective = function(objectiveID)
+            activateObjectiveCalls[#activateObjectiveCalls + 1] = { objectiveID = objectiveID }
+        end,
+        CancelObjective = function(objectiveID)
+            cancelObjectiveCalls[#cancelObjectiveCalls + 1] = { objectiveID = objectiveID }
+        end,
+        FailObjective = function(objectiveID)
+            failObjectiveCalls[#failObjectiveCalls + 1] = { objectiveID = objectiveID }
+        end,
+        CompleteObjective = function(objectiveID)
+            completeObjectiveCalls[#completeObjectiveCalls + 1] = { objectiveID = objectiveID }
         end,
         IncrementObjectiveProgress = function(objectiveID)
             incrementProgressCalls[#incrementProgressCalls + 1] = { objectiveID = objectiveID }
@@ -432,7 +463,12 @@ function MB:Build()
             enqueueSound                = enqueueSoundCalls,
             processSoundQueue           = processSoundQueueCalls,
             changeStage                 = changeStageCalls,
-            setObjectiveCompleted       = setCompletedCalls,
+            addObjective                = addObjectiveCalls,
+            hideObjective               = hideObjectiveCalls,
+            activateObjective           = activateObjectiveCalls,
+            cancelObjective             = cancelObjectiveCalls,
+            failObjective               = failObjectiveCalls,
+            completeObjective           = completeObjectiveCalls,
             incrementObjectiveProgress  = incrementProgressCalls,
             updateObjectiveProgress     = updateProgressCalls,
             echoObjectiveUpdate         = echoCalls,
@@ -443,7 +479,9 @@ function MB:Build()
         local tracked = {
             spawnUnitCalls, spawnFeatureCalls, convertOrdersCalls,
             playSoundCalls, enqueueSoundCalls, processSoundQueueCalls,
-            changeStageCalls, setCompletedCalls, incrementProgressCalls,
+            changeStageCalls, addObjectiveCalls, hideObjectiveCalls,
+            activateObjectiveCalls, cancelObjectiveCalls, failObjectiveCalls,
+            completeObjectiveCalls, incrementProgressCalls,
             updateProgressCalls, echoCalls,
         }
         for i = 1, #tracked do

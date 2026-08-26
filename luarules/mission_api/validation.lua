@@ -801,9 +801,30 @@ local function validateStages(stages)
 	end
 end
 
----Stage changes happen only via the `ChangeStage` action, ever. Any stage that is
----not the initial stage and is targeted by no `ChangeStage` actions can never be
----entered. Trigger firing is dynamic, however, so this stays a warning:
+-- Stage changes happen only via the `ChangeStage` action, ever. Any stage that is
+-- not the initial stage and is targeted by no `ChangeStage` actions is discarded.
+
+local function validateObjectiveStageMembership(stages, objectives)
+	if table.isEmpty(stages) then
+		return
+	end
+
+	local listedObjectiveIDs = {}
+	for _, stageData in pairs(stages) do
+		if type(stageData) == 'table' and type(stageData.objectives) == 'table' then
+			for _, objectiveID in ipairs(stageData.objectives) do
+				listedObjectiveIDs[objectiveID] = true
+			end
+		end
+	end
+
+	for objectiveID in pairs(objectives) do
+		if not listedObjectiveIDs[objectiveID] then
+			logError("Objective is not listed in any stage. Objective: " .. tostring(objectiveID))
+		end
+	end
+end
+
 local function validateStageReachability(actionTypes, stages, actions)
 	if table.isEmpty(stages) then
 		return
@@ -824,6 +845,86 @@ local function validateStageReachability(actionTypes, stages, actions)
 				"Stage is unreachable: not the initial stage, and no ChangeStage action targets it. Stage: "
 					.. tostring(stageID)
 			)
+		end
+	end
+end
+
+---Verify that all paths end in Victory or Defeat. All stages must exit, and
+---stages that exit via required objectives must exit on failure or success.
+local function validateStageExits(triggerTypes, actionTypes, stages, triggers, actions)
+	if table.isEmpty(stages) then
+		return
+	end
+
+	local exitActionTypes = {
+		[actionTypes.ChangeStage] = true,
+		[actionTypes.Victory] = true,
+		[actionTypes.Defeat] = true,
+	}
+
+	local function isExitTrigger(trigger)
+		for _, actionID in ipairs(trigger.actions or {}) do
+			local action = actions[actionID]
+			if action and exitActionTypes[action.type] then
+				return true
+			end
+		end
+		return false
+	end
+
+	-- Objectives that some action can fail:
+	local failableObjectiveIDs = {}
+	for _, action in pairs(actions) do
+		if
+			action.type == actionTypes.SetObjectiveFailed
+			and action.parameters
+			and action.parameters.objectiveID ~= nil
+		then
+			failableObjectiveIDs[action.parameters.objectiveID] = true
+		end
+	end
+
+	for stageID in pairs(stages) do
+		local completedObserverExits = {}
+		local failedExitObjectiveIDs = {}
+		local hasAnyExit = false
+		local hasOtherExit = false
+
+		for _, trigger in pairs(triggers) do
+			local stagesSetting = (trigger.settings or {}).stages or {}
+			local appliesToStage = not next(stagesSetting) or table.contains(stagesSetting, stageID)
+			if appliesToStage and isExitTrigger(trigger) then
+				hasAnyExit = true
+				if trigger.type == triggerTypes.ObjectiveCompleted then
+					completedObserverExits[#completedObserverExits + 1] = trigger
+				elseif trigger.type == triggerTypes.ObjectiveFailed then
+					for _, objectiveID in ipairs((trigger.parameters or {}).objectiveIDs or {}) do
+						failedExitObjectiveIDs[objectiveID] = true
+					end
+				else
+					hasOtherExit = true
+				end
+			end
+		end
+
+		if not hasAnyExit then
+			logWarn(
+				"Stage has no exit: no trigger in this stage leads to ChangeStage, Victory, or Defeat. Stage: "
+					.. tostring(stageID)
+			)
+		elseif not hasOtherExit then
+			for _, trigger in ipairs(completedObserverExits) do
+				for _, objectiveID in ipairs((trigger.parameters or {}).objectiveIDs or {}) do
+					if failableObjectiveIDs[objectiveID] and not failedExitObjectiveIDs[objectiveID] then
+						logWarn(
+							"Stage can dead-end: its exits require completing an objective that can fail, and its failure exits nothing. Stage: "
+								.. tostring(stageID)
+								.. ", Objective: "
+								.. tostring(objectiveID)
+						)
+					end
+				end
+			end
 		end
 	end
 end
@@ -1218,7 +1319,9 @@ local function validateReferences()
 	local featureLoadout = GG['MissionAPI'].FeatureLoadout
 
 	validateStagesReferences(stages, objectives)
+	validateObjectiveStageMembership(stages, objectives)
 	validateStageReachability(actionTypes, stages, actions)
+	validateStageExits(GG['MissionAPI'].TriggerDefinitions.Types, actionTypes, stages, triggers, actions)
 	validateUnitNameReferences(actionTypes, objectives, triggers, actions, unitLoadout)
 	validateFeatureNameReferences(actionTypes, objectives, triggers, actions, featureLoadout)
 	validateMarkerNameReferences(actionTypes, actions)

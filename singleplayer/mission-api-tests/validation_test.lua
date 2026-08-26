@@ -13,7 +13,7 @@ local stages = {
 			'objectiveWithTriggerHavingSettings',
 			'objectiveWithInvalidTriggerType',
 			'objectiveWithMissingTriggerType',
-			'objectiveWithInvalidNextStage',
+			'objectiveWithZeroAmountEventTrigger',
 			'objectiveWithTriggerHavingActions',
 		}
 	},
@@ -27,6 +27,10 @@ local objectives = {
 
 	objectiveWithEmptyText = {
 		textKey = "",
+	},
+
+	objectiveNotListedInAnyStage = {
+		textKey = "not_listed_in_any_stage",  -- error: objective is not listed in any stage
 	},
 
 	objectiveWithInvalidSchemaTypes = {
@@ -384,7 +388,6 @@ local actions = {
 		type = actionTypes.UpdateObjective,
 		parameters = {
 			objectiveID = 'invalidObjectiveID',
-			completed = true,
 		},
 	},
 
