@@ -239,7 +239,6 @@ function gadget:Initialize()
 	-- The objectives module dispatches its observer triggers (ObjectiveCompleted / ObjectiveFailed):
 	GG['MissionAPI'].Modules.Objectives.Init({ processTriggersOfType = processTriggersOfType, activateTrigger = activateTrigger })
 
-
 	-- AllowFeatureBuildStep / AllowUnitBuildStep fire on every builder's build or
 	-- reclaim step (among the hottest call-ins in the game), so only stay subscribed
 	-- to them when the loaded mission actually needs the reclaim bookkeeping they do:

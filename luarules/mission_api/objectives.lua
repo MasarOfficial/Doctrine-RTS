@@ -1,9 +1,6 @@
 ---
 --- Shared helpers for objective progress/completion and stage changes.
 ---
---- Single write path for objective counts: every source (statistics events,
---- synthesized objective triggers, explicit UpdateObjective actions) lands on
---- objective.progress, and completion is evaluated in one place.
 
 -- Activating and iterating triggers is handled through the triggers gadget.
 local processTriggersOfType, activateTrigger
