@@ -1,5 +1,17 @@
 ---
+--- Shared helpers for objective progress/completion and stage changes.
 ---
+--- Single write path for objective counts: every source (statistics events,
+--- synthesized objective triggers, explicit UpdateObjective actions) lands on
+--- objective.progress, and completion is evaluated in one place.
+
+-- Activating and iterating triggers is handled through the triggers gadget.
+local processTriggersOfType, activateTrigger
+
+local function init(dependencies)
+	processTriggersOfType = dependencies.processTriggersOfType
+	activateTrigger       = dependencies.activateTrigger
+end
 
 local function changeStage(stageID)
 	GG['MissionAPI'].CurrentStageID = stageID
@@ -15,7 +27,91 @@ local function echoObjectiveUpdate(objectiveID, objective)
 		.. " | completed: " .. tostring(objective.completed))
 end
 
---- Update objective progress for a managed (statistics-based) objective.
+---@param amount integer? `nil` completes on any progress event, `0` only when exactly zero
+local function isCompleteAtAmount(progress, amount)
+	if amount == nil then
+		return true
+	elseif amount == 0 then
+		return progress == 0
+	end
+	return progress >= amount
+end
+
+---Triggers of type `ObjectiveCompleted` that list an objective are activated
+---only once all of the objectives they list notify them as being completed.
+local function notifyObjectiveCompleted(completedObjectiveID)
+	if not processTriggersOfType then
+		return
+	end
+
+	local triggerTypes = (GG['MissionAPI'].TriggerDefinitions or {}).Types
+	if not triggerTypes then
+		return
+	end
+
+	local objectives = GG['MissionAPI'].Objectives
+	processTriggersOfType(triggerTypes.ObjectiveCompleted, function(trigger)
+		local objectiveIDs = trigger.parameters.objectiveIDs
+		if not table.contains(objectiveIDs, completedObjectiveID) then
+			return
+		end
+		for _, objectiveID in ipairs(objectiveIDs) do
+			if not objectives[objectiveID].completed then
+				return
+			end
+		end
+		activateTrigger(trigger)
+	end)
+end
+
+---Triggers of type `ObjectiveFailed` activate when notified of any failure.
+local function notifyObjectiveFailed(failedObjectiveID)
+	if not processTriggersOfType then return end
+
+	local triggerTypes = (GG['MissionAPI'].TriggerDefinitions or {}).Types
+	if not triggerTypes then return end
+
+	processTriggersOfType(triggerTypes.ObjectiveFailed, function(trigger)
+		if table.contains(trigger.parameters.objectiveIDs, failedObjectiveID) then
+			activateTrigger(trigger)
+		end
+	end)
+end
+
+local function evaluateObjective(objectiveID, objective)
+	objective.completed = isCompleteAtAmount(objective.progress, objective.amount)
+	if objective.completed then
+		notifyObjectiveCompleted(objectiveID)
+	end
+	echoObjectiveUpdate(objectiveID, objective)
+end
+
+local function incrementObjective(objectiveID)
+	local objective = GG['MissionAPI'].Objectives[objectiveID]
+	if objective.completed then
+		return
+	end
+
+	objective.progress = (objective.progress or 0) + 1
+	evaluateObjective(objectiveID, objective)
+end
+
+local function completeObjective(objectiveID, completed)
+	local objective = GG['MissionAPI'].Objectives[objectiveID]
+	if objective.completed then
+		return
+	end
+
+	objective.completed = completed
+	if completed then
+		notifyObjectiveCompleted(objectiveID)
+	end
+	echoObjectiveUpdate(objectiveID, objective)
+end
+
+---Update objective progress for a managed (statistics-based) objective.
+---Called when the trigger's event fires with updated counts. The count
+---accrues in any stage but completion requires the objective's stages.
 local function updateObjectiveProgress(objectiveID, eventTeamID, eventUnitDefName, eventUnitNames, direction, managedObjMetadata)
 	if eventTeamID ~= managedObjMetadata.parameters.teamID then return end
 	if managedObjMetadata.parameters.unitDefName and eventUnitDefName ~= managedObjMetadata.parameters.unitDefName then return end
@@ -24,9 +120,24 @@ local function updateObjectiveProgress(objectiveID, eventTeamID, eventUnitDefNam
 	local objective = GG['MissionAPI'].Objectives[objectiveID]
 	if objective.completed then return end
 
+	objective.progress = (objective.progress or 0) + direction
 
+	if
+		next(managedObjMetadata.stages)
+		and not table.contains(managedObjMetadata.stages, GG["MissionAPI"].CurrentStageID)
+	then
+		return
+	end
 
+	evaluateObjective(objectiveID, objective)
 end
 
 return {
+	Init                       = init,
+	ChangeStage                = changeStage,
+	SetObjectiveCompleted      = completeObjective,
+	IncrementObjectiveProgress = incrementObjective,
+	UpdateObjectiveProgress    = updateObjectiveProgress,
+	NotifyObjectiveFailed      = notifyObjectiveFailed,
+	EchoObjectiveUpdate        = echoObjectiveUpdate,
 }

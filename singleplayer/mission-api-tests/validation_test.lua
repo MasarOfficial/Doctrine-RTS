@@ -58,6 +58,14 @@ local objectives = {
 		},
 	},
 
+	objectiveWithZeroAmountEventTrigger = {
+		textKey = "zero_amount_event_trigger",
+		amount = 0,  -- error: amount of 0 requires a statistics trigger type
+		trigger = {
+			type = triggerTypes.TimeElapsed, -- not a statistics trigger type
+			parameters = { seconds = 100000000 },
+		},
+	},
 
 	objectiveWithTriggerHavingActions = {
 		textKey = "trigger_must_not_have_actions",

@@ -137,6 +137,29 @@ validators[Types.AllyTeamIDs] = function(allyTeamIDs)
 	return result
 end
 
+validators[Types.ObjectiveIDs] = function(objectiveIDs)
+	local luaTypeResult = validators[Types.Table](objectiveIDs)
+	if luaTypeResult then
+		return luaTypeResult
+	end
+
+	if table.isNilOrEmpty(objectiveIDs) then
+		return { { message = "objectiveIDs table is empty" } }
+	end
+
+	local result = {}
+	for i, objectiveID in pairs(objectiveIDs) do
+		local fieldResult = validateField(objectiveID, "objectiveID #" .. i, "string")
+		if fieldResult then
+			result[#result + 1] = fieldResult
+		elseif not GG["MissionAPI"].Objectives[objectiveID] then
+			result[#result + 1] = { message = "Invalid objectiveID: " .. objectiveID }
+		end
+	end
+
+	return result
+end
+
 validators[Types.Orders] = function(orders)
 
 	local result = {}
@@ -636,6 +659,9 @@ local function validateObjectiveInlineTrigger(objective, objectiveIDText)
 		end
 		triggerParams = table.copy(triggerParams or {})
 		triggerParams.quantity = 1
+	elseif objective.amount == 0 and triggersSchemaParameters[objective.trigger.type] then
+		-- Only statistics counts can decrease; an occurrence count never returns to zero.
+		logError("Objective amount of 0 requires a statistics trigger type. Objective: " .. objectiveIDText)
 	end
 	validate(triggersSchemaParameters, objective.trigger.type, triggerParams, 'Objective trigger', objectiveIDText)
 end
@@ -775,6 +801,32 @@ local function validateStages(stages)
 	end
 end
 
+---Stage changes happen only via the `ChangeStage` action, ever. Any stage that is
+---not the initial stage and is targeted by no `ChangeStage` actions can never be
+---entered. Trigger firing is dynamic, however, so this stays a warning:
+local function validateStageReachability(actionTypes, stages, actions)
+	if table.isEmpty(stages) then
+		return
+	end
+
+	local targetedStageIDs = {}
+	for _, action in pairs(actions) do
+		if action.type == actionTypes.ChangeStage and action.parameters and action.parameters.stageID ~= nil then
+			targetedStageIDs[action.parameters.stageID] = true
+		end
+	end
+
+	-- CurrentStageID is the initial stage while validation runs. See loadMission.
+	local initialStage = GG["MissionAPI"].CurrentStageID
+	for stageID in pairs(stages) do
+		if stageID ~= initialStage and not targetedStageIDs[stageID] then
+			logWarn(
+				"Stage is unreachable: not the initial stage, and no ChangeStage action targets it. Stage: "
+					.. tostring(stageID)
+			)
+		end
+	end
+end
 
 ----------------------------------------------------------------
 --- Loadout Validation:
@@ -1166,6 +1218,7 @@ local function validateReferences()
 	local featureLoadout = GG['MissionAPI'].FeatureLoadout
 
 	validateStagesReferences(stages, objectives)
+	validateStageReachability(actionTypes, stages, actions)
 	validateUnitNameReferences(actionTypes, objectives, triggers, actions, unitLoadout)
 	validateFeatureNameReferences(actionTypes, objectives, triggers, actions, featureLoadout)
 	validateMarkerNameReferences(actionTypes, actions)

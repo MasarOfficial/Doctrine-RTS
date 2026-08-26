@@ -9,6 +9,7 @@ local types = {
 	Position = 'Position',
 	Positions = 'Positions',
 	AllyTeamIDs = 'AllyTeamIDs',
+	ObjectiveIDs = 'ObjectiveIDs',
 	Orders = 'Orders',
 	Area = 'Area',
 	Direction = 'Direction',
