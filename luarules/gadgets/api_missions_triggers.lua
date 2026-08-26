@@ -251,15 +251,6 @@ function gadget:Initialize()
 		gadgetHandler:RemoveCallIn('AllowUnitBuildStep')
 	end
 
-	-- Summary view over the *BuildStep callins behave similarly so we unhook them.
-	local needsConstructionProgress = table.any(triggers, function(trigger)
-		return trigger.type == triggerTypes.ConstructionProgress
-	end)
-
-	if not needsConstructionProgress then
-		gadgetHandler:RemoveCallIn('UnitBuildStepPost')
-	end
-
 	local needsFeatureReclaimTracking = table.any(triggers, function(trigger)
 		return trigger.type == triggerTypes.FeatureReclaimed
 			or trigger.type == triggerTypes.FeatureDestroyed
@@ -267,6 +258,15 @@ function gadget:Initialize()
 
 	if not needsReclaimIncome and not needsFeatureReclaimTracking then
 		gadgetHandler:RemoveCallIn('AllowFeatureBuildStep')
+	end
+
+	-- Summary view over the *BuildStep callins behave similarly so we unhook them.
+	local needsConstructionProgress = table.any(triggers, function(trigger)
+		return trigger.type == triggerTypes.ConstructionProgress
+	end)
+
+	if not needsConstructionProgress then
+		gadgetHandler:RemoveCallIn('UnitBuildStepPost')
 	end
 
 	-- ConstructionStarted accepts some orders that assist an existing build frame.

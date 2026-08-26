@@ -115,27 +115,27 @@ validators[Types.Positions] = function(positions)
 	end
 
 validators[Types.AllyTeamIDs] = function(allyTeamIDs)
-		local luaTypeResult = validators[Types.Table](allyTeamIDs)
-		if luaTypeResult then
-			return luaTypeResult
-		end
-
-		if table.isNilOrEmpty(allyTeamIDs) then
-			return { { message = "allyTeamIDs table is empty" } }
-		end
-
-		local result = {}
-		for i, allyTeamID in pairs(allyTeamIDs) do
-			local fieldResult = validateField(allyTeamID, "allyTeamID #" .. i, 'number')
-			if fieldResult then
-				result[#result + 1] = fieldResult
-			elseif not Spring.GetAllyTeamInfo(allyTeamID) then
-				result[#result + 1] = { message = "Invalid allyTeamID: " .. allyTeamID }
-			end
-		end
-
-		return result
+	local luaTypeResult = validators[Types.Table](allyTeamIDs)
+	if luaTypeResult then
+		return luaTypeResult
 	end
+
+	if table.isNilOrEmpty(allyTeamIDs) then
+		return { { message = "allyTeamIDs table is empty" } }
+	end
+
+	local result = {}
+	for i, allyTeamID in pairs(allyTeamIDs) do
+		local fieldResult = validateField(allyTeamID, "allyTeamID #" .. i, 'number')
+		if fieldResult then
+			result[#result + 1] = fieldResult
+		elseif not Spring.GetAllyTeamInfo(allyTeamID) then
+			result[#result + 1] = { message = "Invalid allyTeamID: " .. allyTeamID }
+		end
+	end
+
+	return result
+end
 
 validators[Types.Orders] = function(orders)
 

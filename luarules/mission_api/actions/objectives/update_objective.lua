@@ -25,9 +25,9 @@ return {
 	{
 		type = 'UpdateObjective',
 		parameters = {
-			{ name = 'objectiveID', required = true, type = ParameterTypes.ObjectiveID },
-			{ name = 'completed', required = false, type = ParameterTypes.Boolean },
-			{ name = 'textKey', required = false, type = ParameterTypes.String },
+			{ name = 'objectiveID', required = true,  type = ParameterTypes.ObjectiveID },
+			{ name = 'completed',   required = false, type = ParameterTypes.Boolean },
+			{ name = 'textKey',     required = false, type = ParameterTypes.String },
 		},
 		actionFunction = updateObjective,
 	}
