@@ -56,7 +56,7 @@ local triggers = {
 	advanceOnWait = {
 		type = triggerTypes.ObjectiveCompleted,
 		parameters = {
-			objectiveIDs = { 'wait3secs' },
+			objectiveID = 'wait3secs',
 		},
 		actions = { 'changeToSecondStage' },
 	},

@@ -41,8 +41,7 @@ local function isCompleteAtAmount(progress, amount)
 	return progress >= amount
 end
 
----Triggers of type `ObjectiveCompleted` that list an objective are activated
----only once all of the objectives they list notify them as being completed.
+---Triggers of type `ObjectiveCompleted` are iterated and notified on a match.
 local function notifyObjectiveCompleted(completedObjectiveID)
 	if not processTriggersOfType then
 		return
@@ -53,22 +52,14 @@ local function notifyObjectiveCompleted(completedObjectiveID)
 		return
 	end
 
-	local objectives = GG["MissionAPI"].Objectives
 	processTriggersOfType(triggerTypes.ObjectiveCompleted, function(trigger)
-		local objectiveIDs = trigger.parameters.objectiveIDs
-		if not table.contains(objectiveIDs, completedObjectiveID) then
-			return
+		if trigger.parameters.objectiveID == completedObjectiveID then
+			activateTrigger(trigger)
 		end
-		for _, objectiveID in ipairs(objectiveIDs) do
-			if not objectives[objectiveID].completed then
-				return
-			end
-		end
-		activateTrigger(trigger)
 	end)
 end
 
----Triggers of type `ObjectiveFailed` activate when notified of any failure.
+---Triggers of type `ObjectiveFailed` are iterated and notified on a match.
 local function notifyObjectiveFailed(failedObjectiveID)
 	if not processTriggersOfType then
 		return
@@ -80,7 +71,7 @@ local function notifyObjectiveFailed(failedObjectiveID)
 	end
 
 	processTriggersOfType(triggerTypes.ObjectiveFailed, function(trigger)
-		if table.contains(trigger.parameters.objectiveIDs, failedObjectiveID) then
+		if trigger.parameters.objectiveID == failedObjectiveID then
 			activateTrigger(trigger)
 		end
 	end)

@@ -172,24 +172,16 @@ describe("mission_api.objectives", function()
 	end)
 
 	describe("observer triggers", function()
-		it("activates ObjectiveCompleted triggers when the last listed objective completes", function()
-			install(
-				Builders.MissionApi
-					.new()
-					:WithObjective("obj1", { completed = false })
-					:WithObjective("obj2", { completed = false })
-					:WithTrigger("observer", {
-						type = TRIGGER_TYPES.ObjectiveCompleted,
-						parameters = { objectiveIDs = { "obj1", "obj2" } },
-					})
-			)
+		it("activates the ObjectiveCompleted trigger naming the completed objective", function()
+			install(Builders.MissionApi.new():WithObjective("obj1", { completed = false }):WithTrigger("observer", {
+				type = TRIGGER_TYPES.ObjectiveCompleted,
+				parameters = { objectiveID = "obj1" },
+			}))
 			Objectives.SetObjectiveCompleted("obj1", true)
-			assert.are.equal(0, #activatedTriggers)
-			Objectives.SetObjectiveCompleted("obj2", true)
 			assert.are.equal(1, #activatedTriggers)
 		end)
 
-		it("does not activate ObjectiveCompleted triggers listing other objectives", function()
+		it("does not activate ObjectiveCompleted triggers naming another objective", function()
 			install(
 				Builders.MissionApi
 					.new()
@@ -197,7 +189,7 @@ describe("mission_api.objectives", function()
 					:WithObjective("obj2", { completed = false })
 					:WithTrigger("observer", {
 						type = TRIGGER_TYPES.ObjectiveCompleted,
-						parameters = { objectiveIDs = { "obj2" } },
+						parameters = { objectiveID = "obj2" },
 					})
 			)
 			Objectives.SetObjectiveCompleted("obj1", true)
@@ -211,19 +203,19 @@ describe("mission_api.objectives", function()
 					:WithObjective("obj1", { completed = false, progress = 2, amount = 3 })
 					:WithTrigger("observer", {
 						type = TRIGGER_TYPES.ObjectiveCompleted,
-						parameters = { objectiveIDs = { "obj1" } },
+						parameters = { objectiveID = "obj1" },
 					})
 			)
 			Objectives.IncrementObjectiveProgress("obj1")
 			assert.are.equal(1, #activatedTriggers)
 		end)
 
-		it("activates ObjectiveFailed triggers when any listed objective fails", function()
+		it("activates the ObjectiveFailed trigger naming the failed objective", function()
 			install(Builders.MissionApi.new():WithObjective("obj1", { completed = false }):WithTrigger("observer", {
 				type = TRIGGER_TYPES.ObjectiveFailed,
-				parameters = { objectiveIDs = { "obj1", "obj2" } },
+				parameters = { objectiveID = "obj1" },
 			}))
-			Objectives.NotifyObjectiveFailed("obj3")
+			Objectives.NotifyObjectiveFailed("obj2")
 			assert.are.equal(0, #activatedTriggers)
 			Objectives.NotifyObjectiveFailed("obj1")
 			assert.are.equal(1, #activatedTriggers)

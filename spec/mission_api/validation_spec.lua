@@ -116,17 +116,17 @@ describe("mission_api.validation", function()
 			assert.are.same({}, logged)
 		end)
 
-		it("logs an error for observer triggers listing an unknown objectiveID", function()
+		it("logs an error for an observer trigger naming an unknown objectiveID", function()
 			GG["MissionAPI"].Objectives = { known = { textKey = "ok" } }
 			validation.ValidateTriggers({
 				observer = normalizeTrigger({
 					type = triggerTypes.ObjectiveCompleted,
-					parameters = { objectiveIDs = { "known", "missing" } },
+					parameters = { objectiveID = "missing" },
 					actions = { "ok" },
 				}),
 			}, rawActions)
 
-			assert.is_true(hasError("Invalid objectiveID: missing. Trigger: observer, Parameter: objectiveIDs"))
+			assert.is_true(hasError("Invalid objectiveID: missing. Trigger: observer, Parameter: objectiveID"))
 		end)
 
 		it(
