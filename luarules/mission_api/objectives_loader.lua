@@ -1,5 +1,5 @@
-local parameterTypes = VFS.Include('luarules/mission_api/parameter_types.lua')
-local schemaUtils = VFS.Include('luarules/mission_api/schema_utils.lua')
+local parameterTypes = VFS.Include("luarules/mission_api/parameter_types.lua")
+local schemaUtils = VFS.Include("luarules/mission_api/schema_utils.lua")
 
 --[[
 	objectiveID = {
@@ -18,13 +18,16 @@ local schemaUtils = VFS.Include('luarules/mission_api/schema_utils.lua')
 local function processRawObjectives(rawObjectives, rawTriggers, rawActions, stages)
 	local objectives = rawObjectives or {}
 
-	local actionTypes = GG['MissionAPI'].ActionDefinitions.Types
-	local triggerTypesWithQuantity = schemaUtils.GetTypesWithParameterType(GG['MissionAPI'].TriggerDefinitions.Parameters, parameterTypes.Types.Quantity)
+	local actionTypes = GG["MissionAPI"].ActionDefinitions.Types
+	local triggerTypesWithQuantity = schemaUtils.GetTypesWithParameterType(
+		GG["MissionAPI"].TriggerDefinitions.Parameters,
+		parameterTypes.Types.Quantity
+	)
 
 	-- Build objective-to-stages mapping from stages structure
 	local objectiveToStages = {}
 	for stageID, stageData in pairs(stages or {}) do
-		if type(stageData) == 'table' and type(stageData.objectives) == 'table' then
+		if type(stageData) == "table" and type(stageData.objectives) == "table" then
 			for _, objectiveID in ipairs(stageData.objectives) do
 				if not objectiveToStages[objectiveID] then
 					objectiveToStages[objectiveID] = {}
@@ -37,15 +40,16 @@ local function processRawObjectives(rawObjectives, rawTriggers, rawActions, stag
 	for objectiveID, objective in pairs(objectives) do
 		local objectiveStages = objectiveToStages[objectiveID] or {}
 
-		if type(objectiveID) == 'string' and type(objective) == 'table' and type(objective.trigger) == 'table' then
+		if type(objectiveID) == "string" and type(objective) == "table" and type(objective.trigger) == "table" then
 			local amount = objective.amount
 			local triggerType = objective.trigger.type
-			local triggerParameters = type(objective.trigger.parameters) == 'table' and objective.trigger.parameters or {}
+			local triggerParameters = type(objective.trigger.parameters) == "table" and objective.trigger.parameters
+				or {}
 
 			if triggerTypesWithQuantity[triggerType] then
 				-- Managed objective: register metadata for lookaside lookup; no trigger or action synthesis.
-				table.ensureTable(GG['MissionAPI'].ManagedObjectives, triggerType)
-				table.insert(GG['MissionAPI'].ManagedObjectives[triggerType], {
+				table.ensureTable(GG["MissionAPI"].ManagedObjectives, triggerType)
+				table.insert(GG["MissionAPI"].ManagedObjectives[triggerType], {
 					objectiveID = objectiveID,
 					stages = objectiveStages,
 					parameters = triggerParameters,
@@ -53,21 +57,21 @@ local function processRawObjectives(rawObjectives, rawTriggers, rawActions, stag
 			else
 				-- Non-managed objective: synthesize trigger + action as usual.
 				local isRepeating = amount ~= nil
-				local triggerID = '__objective_' .. objectiveID
-				local actionID  = '__updateObjective_' .. objectiveID
+				local triggerID = "__objective_" .. objectiveID
+				local actionID = "__updateObjective_" .. objectiveID
 
 				rawTriggers[triggerID] = {
-					type       = triggerType,
+					type = triggerType,
 					parameters = triggerParameters,
-					settings   = {
-						stages    = objectiveStages,
+					settings = {
+						stages = objectiveStages,
 						repeating = isRepeating,
 					},
 					actions = { actionID },
 				}
 
 				rawActions[actionID] = {
-					type       = actionTypes.UpdateObjective,
+					type = actionTypes.UpdateObjective,
 					parameters = {
 						objectiveID = objectiveID,
 					},
@@ -75,7 +79,6 @@ local function processRawObjectives(rawObjectives, rawTriggers, rawActions, stag
 			end
 		end
 	end
-
 
 	return objectives
 end

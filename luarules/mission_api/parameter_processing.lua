@@ -2,13 +2,13 @@
 --- Post-validation parameter processing for Mission API actions and triggers.
 ---
 
-VFS.Include('common/wav.lua')
+VFS.Include("common/wav.lua")
 
-local ParameterTypes = GG['MissionAPI'].Modules.ParameterTypes.Types
-local enumSets = GG['MissionAPI'].Modules.ParameterTypes.EnumSets
-local actionDefinitions = GG['MissionAPI'].ActionDefinitions
+local ParameterTypes = GG["MissionAPI"].Modules.ParameterTypes.Types
+local enumSets = GG["MissionAPI"].Modules.ParameterTypes.EnumSets
+local actionDefinitions = GG["MissionAPI"].ActionDefinitions
 local actionsSchemaParameters = actionDefinitions.Parameters
-local triggersSchemaParameters = GG['MissionAPI'].TriggerDefinitions.Parameters
+local triggersSchemaParameters = GG["MissionAPI"].TriggerDefinitions.Parameters
 
 ----------------------------------------------------------------
 --- Parameter processors:
@@ -31,13 +31,26 @@ local function processDirection(position)
 end
 
 local function processOrders(orders)
-	for i, order in ipairs(orders) do
-		local commandID = order[1]
-		if type(commandID) == 'string' then
+	for _, order in ipairs(orders) do
+		local commandIndex = order[1] == CMD.INSERT and 3 or 1
+		local commandID = order[commandIndex]
+		if type(commandID) == "string" then
 			local unitDef = UnitDefNames[commandID]
 			if unitDef then
-				orders[i] = { -unitDef.id, order[2], order[3] }
+				order[commandIndex] = -unitDef.id
 			end
+		end
+	end
+end
+
+local function processCommand(command)
+	if command == CMD.ANY or command == CMD.BUILD then
+		return
+	end
+	if type(command) == "string" then
+		local unitDef = UnitDefNames[command]
+		if unitDef then
+			return -unitDef.id
 		end
 	end
 end
@@ -45,7 +58,7 @@ end
 local function processSoundFile(soundfile)
 	local wavData = ReadWAV(soundfile)
 	if wavData then
-		GG['MissionAPI'].soundFiles[soundfile] = wavData.Length
+		GG["MissionAPI"].soundFiles[soundfile] = wavData.Length
 	end
 end
 
@@ -58,15 +71,15 @@ local function processEnumSet(values)
 end
 
 local processors = {
-
-	[ParameterTypes.Position]      = processPosition,
-	[ParameterTypes.Positions]     = processPositions,
-	[ParameterTypes.Direction]     = processDirection,
-	[ParameterTypes.Orders]        = processOrders,
-	[ParameterTypes.SoundFile]     = processSoundFile,
+	[ParameterTypes.Position] = processPosition,
+	[ParameterTypes.Positions] = processPositions,
+	[ParameterTypes.Direction] = processDirection,
+	[ParameterTypes.Orders] = processOrders,
+	[ParameterTypes.Command] = processCommand,
+	[ParameterTypes.SoundFile] = processSoundFile,
 }
 for enumSetType in pairs(enumSets) do
-	processors[enumSetType]        = processEnumSet
+	processors[enumSetType] = processEnumSet
 end
 
 ----------------------------------------------------------------
@@ -99,6 +112,6 @@ local function processTriggerParameters(triggers)
 end
 
 return {
-	ProcessActionParameters  = processActionParameters,
+	ProcessActionParameters = processActionParameters,
 	ProcessTriggerParameters = processTriggerParameters,
 }

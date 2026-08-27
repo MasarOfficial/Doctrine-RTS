@@ -1,11 +1,11 @@
-local TRIGGERS_DIR = 'luarules/mission_api/triggers/'
-local TRIGGER_FILES_PATTERN = '*.lua'
+local TRIGGERS_DIR = "luarules/mission_api/triggers/"
+local TRIGGER_FILES_PATTERN = "*.lua"
 
 -- Some triggers declare no callins. They are managed via centralized monitors:
 -- - statistics triggers (TotalUnits*, UnitsOwned) use api_missions_triggers.lua
 -- - objective observers (Objective[Completed|Failed]) use objectives.lua
 local function loadTriggerDefinitions()
-	local ParameterTypes = GG['MissionAPI'].Modules.ParameterTypes.Types
+	local ParameterTypes = GG["MissionAPI"].Modules.ParameterTypes.Types
 
 	local triggerFiles = VFS.DirList(TRIGGERS_DIR, TRIGGER_FILES_PATTERN)
 
@@ -29,19 +29,19 @@ local function loadTriggerDefinitions()
 	-- Shared trigger settings schema (global, not per-trigger).
 	local settings = {
 		prerequisites = ParameterTypes.Table,
-		repeating     = ParameterTypes.Boolean,
-		maxRepeats    = ParameterTypes.Number,
-		difficulties  = ParameterTypes.Table,
-		coop          = ParameterTypes.Boolean,
-		active        = ParameterTypes.Boolean,
-		stages        = ParameterTypes.Table,
+		repeating = ParameterTypes.Boolean,
+		maxRepeats = ParameterTypes.Number,
+		difficulties = ParameterTypes.Table,
+		coop = ParameterTypes.Boolean,
+		active = ParameterTypes.Boolean,
+		stages = ParameterTypes.Table,
 	}
 
 	return {
-		Types      = types,
-		Settings   = settings,
+		Types = types,
+		Settings = settings,
 		Parameters = parameters,
-		Callins    = callins,
+		Callins = callins,
 	}
 end
 
