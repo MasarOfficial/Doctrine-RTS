@@ -168,29 +168,6 @@ validators[Types.AllyTeamIDs] = function(allyTeamIDs)
 	return result
 end
 
-validators[Types.ObjectiveIDs] = function(objectiveIDs)
-	local luaTypeResult = validators[Types.Table](objectiveIDs)
-	if luaTypeResult then
-		return luaTypeResult
-	end
-
-	if table.isNilOrEmpty(objectiveIDs) then
-		return { { message = "objectiveIDs table is empty" } }
-	end
-
-	local result = {}
-	for i, objectiveID in pairs(objectiveIDs) do
-		local fieldResult = validateField(objectiveID, "objectiveID #" .. i, "string")
-		if fieldResult then
-			result[#result + 1] = fieldResult
-		elseif not GG["MissionAPI"].Objectives[objectiveID] then
-			result[#result + 1] = { message = "Invalid objectiveID: " .. objectiveID }
-		end
-	end
-
-	return result
-end
-
 validators[Types.Orders] = function(orders)
 
 	local result = {}
