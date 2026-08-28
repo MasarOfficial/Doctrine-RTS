@@ -3,7 +3,7 @@
 
 local SIDES = VFS.Include("gamedata/sides_enum.lua")
 if not SIDES then
-	error("[Sidedata] Failed to load sides_enum.lua!")
+	error("[sidedata.lua] Failed to load sides_enum.lua!")
 end
 
 -- NOTE: Don't change the ordering here until
@@ -11,21 +11,18 @@ end
 -- AI will crash.
 local sideOptions = {
 	{
-		name = "Armada",
+		name = "Vanguards",
 		startunit = SIDES.ARMADA .. "com",
 	},
 	{
-		name = "Cortex",
+		name = "Coalition",
 		startunit = SIDES.CORTEX .. "com",
 	},
-	{
-		name = "Random",
-		startunit = "dummycom",
-	},
-	{
-		name = "Legion",
-		startunit = SIDES.LEGION .. "com",
-	},
+
+--	{
+--		name = "Legion",
+--		startunit = SIDES.LEGION .. "com",
+--	},
 }
 
 return sideOptions
