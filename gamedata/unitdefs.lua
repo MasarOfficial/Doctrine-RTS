@@ -45,33 +45,8 @@ end
 local luaFiles = VFS.DirList("units/", "*.lua", nil, true)
 
 local legionEnabled = Spring.GetModOptions().experimentallegionfaction
-local scavengersEnabled = BAR.Utilities.Gametype.IsScavengers()
-local raptorsEnabled = BAR.Utilities.Gametype.IsRaptors()
-
-if Spring.GetModOptions().ruins == "enabled" then
-	legionEnabled = true
-	scavengersEnabled = true
-end
-
-if scavengersEnabled then
-	legionEnabled = true
-end
-
-if Spring.GetModOptions().zombies ~= "disabled" then
-	scavengersEnabled = true
-	legionEnabled = true
-end
-
-if Spring.GetModOptions().experimentalextraunits or Spring.GetModOptions().scavunitsforplayers then
-	scavengersEnabled = true
-	legionEnabled = true
-end
-
-if Spring.GetModOptions().forceallunits then
-	raptorsEnabled = true
-	scavengersEnabled = true
-	legionEnabled = true
-end
+local scavengersEnabled = false
+local raptorsEnabled = false
 
 for _, filename in ipairs(luaFiles) do
 	local loadFile = (legionEnabled or not filename:find("legion"))

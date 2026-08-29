@@ -2768,4 +2768,23 @@ for i = 1, 9 do
 	}
 end
 
-return options
+local filteredOptions = {}
+for _, option in ipairs(options) do
+	local key = option.key or ""
+	local section = option.section or ""
+	local removeOption = section == "raptor_defense_options" or section == "scav_defense_options"
+	removeOption = removeOption
+		or key == "ai_incomemultiplier"
+		or key == "allow_enemy_ai_spawn_placement"
+		or key == "nowasting"
+		or key == "scavunitsforplayers"
+		or key == "zombies"
+		or key == "forceallunits"
+		or key:sub(1, 7) == "raptor_"
+		or key:sub(1, 5) == "scav_"
+	if not removeOption then
+		filteredOptions[#filteredOptions + 1] = option
+	end
+end
+
+return filteredOptions

@@ -38,21 +38,6 @@ local function getSettings()
 					end
 				end
 
-				local luaAI = Spring.GetTeamLuaAI(teamID)
-
-				if luaAI then
-					if luaAI:find("Raptors") then
-						isRaptors = true
-						isAllyTeamValid = false
-						raptorTeamID = teamID
-						raptorAllyTeamID = allyTeamID
-					elseif luaAI:find("Scavengers") then
-						isScavengers = true
-						isAllyTeamValid = false
-						scavTeamID = teamID
-						scavAllyTeamID = allyTeamID
-					end
-				end
 			end
 
 			if isAllyTeamValid then
@@ -77,7 +62,7 @@ local function getSettings()
 		isSmallTeams = isSmallTeams and teamSize <= smallTeamThreshold
 	end
 
-	isSinglePlayer = playerCount == 1
+	isSinglePlayer = false
 	isSmallTeams = isTeams and isSmallTeams
 	isBigTeams = isTeams and not isSmallTeams
 	isPvE = isRaptors or isScavengers

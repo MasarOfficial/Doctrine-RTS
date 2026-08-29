@@ -9713,20 +9713,6 @@ function init()
 			end,
 		},
 		{
-			id = "restart_with_state",
-			group = "dev",
-			category = types.dev,
-			name = BAR.I18N("ui.settings.option.restart_with_state"),
-			type = "bool",
-			value = false,
-			description = BAR.I18N("ui.settings.option.restart_with_state_descr"),
-			onchange = function(i, value)
-				options[getOptionByID("restart_with_state")].value = false
-				Spring.SendLuaRulesMsg("restart_with_state")
-			end,
-		},
-
-		{
 			id = "label_dev_debug",
 			group = "dev",
 			name = BAR.I18N("ui.settings.option.label_debug"),
@@ -12320,10 +12306,6 @@ function init()
 
 	if Spring.GetConfigString("KeybindingFile") ~= "uikeys.txt" then
 		options[getOptionByID("gridmenu")] = nil
-	end
-
-	if not isSinglePlayer then
-		options[getOptionByID("restart_with_state")] = nil
 	end
 
 	-- add user widgets
