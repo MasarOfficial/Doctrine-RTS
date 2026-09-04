@@ -1,0 +1,93 @@
+
+#include "../../recoil_common_includes.h"
+
+#define SIGNAL_BUILD 2
+
+piece  base, tracks, attach, emitnano;
+
+static-var  readyToBuild,restore_delay;
+
+
+#define TB_BASE base 
+#define TB_TURNRATE <15.0> 
+#define TB_TILT_X <0.1>
+#define TB_BANK_Z <0.1> // Do not define this if you dont want banking
+#include "../../tilt_bank_mobileunit.h"
+
+Create()
+{
+
+	restore_delay = 6000;
+	readyToBuild = FALSE;
+	call-script TB_Init();
+	SLEEP_UNTIL_UNITFINISHED;
+}
+
+static-var  Stunned;
+SetStunned(State)
+{
+  Stunned = State;
+	if (!Stunned) {
+		//start-script Restore_Nano();
+	}
+}
+
+
+StartBuilding(heading, pitch)
+{
+	signal SIGNAL_BUILD;	
+	set-signal-mask SIGNAL_BUILD;
+	if (heading > 0) {
+		move emitnano to x-axis [-11.75] now;
+	}
+	else {
+		move emitnano to x-axis [11.75] now;
+	}
+	set INBUILDSTANCE to 1;
+	//get PRINT(get GAME_FRAME, heading, heading, heading);
+	//start-script Deploy_Nano(heading);
+}
+
+StopBuilding()
+{
+	signal SIGNAL_BUILD;	
+	set-signal-mask SIGNAL_BUILD;
+
+	sleep 6000;
+	set INBUILDSTANCE to 0;
+	readyToBuild = FALSE;
+}
+
+QueryNanoPiece(pieceIndex)
+{
+	pieceIndex = emitnano;
+}
+
+Killed(severity, corpsetype)
+{
+	if( severity <= 25 )
+	{
+		corpsetype = 1 ;
+		explode base type BITMAPONLY | NOHEATCLOUD;
+		explode tracks type BITMAPONLY | NOHEATCLOUD;
+		return(corpsetype);
+	}
+	if( severity <= 50 )
+	{
+		corpsetype = 2 ;
+		explode base type FIRE | SMOKE | FALL | NOHEATCLOUD;
+		explode tracks type FIRE | SMOKE | FALL | NOHEATCLOUD;
+		return(corpsetype);
+	}
+	if( severity <= 99 )
+	{
+		corpsetype = 3 ;
+		explode base type EXPLODE_ON_HIT | FIRE | SMOKE | FALL | NOHEATCLOUD;
+		explode tracks type EXPLODE_ON_HIT | FIRE | SMOKE | FALL | NOHEATCLOUD;
+		return(corpsetype);
+	}
+	corpsetype = 3 ;
+	explode base type EXPLODE_ON_HIT | FIRE | SMOKE | FALL | NOHEATCLOUD;
+	explode tracks type EXPLODE_ON_HIT | FIRE | SMOKE | FALL | NOHEATCLOUD;
+	return corpsetype;
+}

@@ -1,0 +1,10 @@
+*.db
+/.git
+/.svn
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.iml
+.project
+*.code-workspace
+.lux

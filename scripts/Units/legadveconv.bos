@@ -1,0 +1,129 @@
+#include "../recoil_common_includes.h"
+
+piece
+smallArm2,
+smallArm1,
+smallArm4,
+smallArm3,
+largeCell4,
+largeCell2,
+largeCell1,
+largeCell3,
+base,
+largeMidCell,
+smallArmFlare1,
+smallArmFlare2,
+smallArmFlare3,
+smallArmFlare4,
+largeCellFlare1,
+largeCellFlare2,
+largeCellFlare3,
+largeCellFlare4,
+lightFlare1,
+lightFlare2,
+lightFlare3,
+lightFlare4,
+lightFlare5;
+
+static-var  Active;
+
+MMStatus(State)
+{
+	Active = State;
+	if (Active) {
+        show lightFlare1;
+        show lightFlare2;
+        show lightFlare3;
+        show lightFlare4;
+        show lightFlare5;
+
+        move largeCell1 to y-axis [0] speed [9];
+        move largeCell2 to y-axis [0] speed [9];
+        move largeCell3 to y-axis [0] speed [9];
+        move largeCell4 to y-axis [0] speed [9];
+
+        turn smallArm1 to x-axis <0> speed <45>;
+        turn smallArm2 to x-axis <0> speed <45>;
+        turn smallArm3 to x-axis <0> speed <45>;
+        turn smallArm4 to x-axis <0> speed <45>;
+
+        move largeMidCell to y-axis [0] speed [5];
+
+	}
+	else {
+        hide lightFlare1;
+        hide lightFlare2;
+        hide lightFlare3;
+        hide lightFlare4;
+        hide lightFlare5;
+
+        move largeCell1 to y-axis [-9] speed [9];
+        move largeCell2 to y-axis [-9] speed [9];
+        move largeCell3 to y-axis [-9] speed [9];
+        move largeCell4 to y-axis [-9] speed [9];
+
+        turn smallArm1 to x-axis <45> speed <45>;
+        turn smallArm2 to x-axis <45> speed <45>;
+        turn smallArm3 to x-axis <45> speed <45>;
+        turn smallArm4 to x-axis <45> speed <45>;
+
+        move largeMidCell to y-axis [-5] speed [5];
+	}
+	
+}
+
+Create(){
+
+    hide lightFlare1;
+    hide lightFlare2;
+    hide lightFlare3;
+    hide lightFlare4;
+    hide lightFlare5;
+    
+    turn largeCellFlare1 to x-axis <-50> now;
+    turn largeCellFlare3 to x-axis <50> now;
+    turn largeCellFlare2 to z-axis <50> now;
+    turn largeCellFlare4 to z-axis <-50> now;
+
+    turn smallArmFlare1 to y-axis <45> now;
+    turn smallArmFlare2 to y-axis <135> now;
+    turn smallArmFlare3 to y-axis <225> now;
+    turn smallArmFlare4 to y-axis <315> now;
+
+	Active = 0;
+
+}
+
+
+#define BASEPIECE base
+#define MAXTILT 0
+#include "../unit_hitbyweaponid_and_smoke.h"
+
+Killed(severity, corpsetype)
+{
+	if( severity <= 25 )
+	{
+		corpsetype = 1 ;
+		explode base type BITMAPONLY | NOHEATCLOUD;
+		explode largeMidCell type FIRE | SMOKE | FALL | NOHEATCLOUD;
+		return(corpsetype);
+	}
+	if( severity <= 50 )
+	{
+		corpsetype = 2 ;
+		explode base type BITMAPONLY | NOHEATCLOUD;
+		explode largeMidCell type FALL | NOHEATCLOUD;
+		return(corpsetype);
+	}
+	if( severity <= 99 )
+	{
+		corpsetype = 3 ;
+		explode base type BITMAPONLY | NOHEATCLOUD;
+		explode largeMidCell type SMOKE | FALL | NOHEATCLOUD;
+		return(corpsetype);
+	}
+	corpsetype = 3 ;
+		explode base type BITMAPONLY | NOHEATCLOUD;
+		explode largeMidCell type EXPLODE_ON_HIT | FIRE | SMOKE | FALL | NOHEATCLOUD;
+	return corpsetype;
+}

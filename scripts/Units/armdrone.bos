@@ -1,0 +1,121 @@
+
+#include "../recoil_common_includes.h"
+
+piece  base, jet, thrustl, thrustr, rflare, lflare;
+
+// Signal definitions
+
+#define IDLEHOVERSCALE 32
+#define IDLEHOVERSPEED 60
+#define IDLEBASEPIECE base
+#include "../idlehover.h"
+
+static-var gun_1;
+
+
+Create()
+{
+	hide rflare;
+	hide lflare;
+	hide thrustr;
+	hide thrustl;
+	gun_1 = 0;
+	turn jet to x-axis <-90.0> now;
+	start-script IdleHover();
+}
+
+Activate()
+{
+	show thrustl;
+	show thrustr;
+}
+
+Deactivate()
+{
+	hide thrustl;
+	hide thrustr;
+}
+
+MoveRate0()
+{
+	turn jet to x-axis <-90.0> speed <200.0>;
+}
+
+MoveRate1()
+{
+	turn jet to x-axis <-45.0> speed <100.0>;
+}
+
+MoveRate2()
+{
+	turn jet to x-axis <0> speed <50.0>;
+}
+
+MoveRate3()
+{
+	turn jet to x-axis <0.0> speed <100.0>;
+}
+
+AimFromWeapon1(pieceIndex)
+{
+	pieceIndex = base;
+}
+
+AimWeapon1(heading, pitch)
+{
+	return (1);
+}
+
+QueryWeapon1(pieceIndex)
+{
+	if (gun_1==0)
+	{
+		pieceIndex = lflare;
+		gun_1=1;
+	}
+	else 
+	{
+		pieceIndex=rflare;
+		gun_1=0;
+	}
+}
+
+FireWeapon1()
+{
+}
+
+StartMoving(reversing)
+{
+}
+
+StopMoving()
+{
+}
+
+
+
+Killed(severity, corpsetype)
+{
+	if( severity <= 25 )
+	{
+		corpsetype = 1 ;
+		explode base type BITMAPONLY | NOHEATCLOUD;
+		return(corpsetype);
+	}
+	if( severity <= 50 )
+	{
+		corpsetype = 2 ;
+		explode base type BITMAPONLY | NOHEATCLOUD;
+		return(corpsetype);
+	}
+	if( severity <= 99 )
+	{
+		corpsetype = 3 ;
+		explode base type BITMAPONLY | NOHEATCLOUD;
+		return(corpsetype);
+	}
+	corpsetype = 3 ;
+    explode base type BITMAPONLY | NOHEATCLOUD;
+    return(corpsetype);
+	return corpsetype;
+}

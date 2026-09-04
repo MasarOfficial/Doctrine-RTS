@@ -1,0 +1,72 @@
+
+#include "../recoil_common_includes.h"
+
+piece  base, turret, dish, jam;
+
+static-var  Stunned;
+
+SetStunned(State)
+{
+    Stunned = State;
+	if (Stunned) {
+	    call-script Deactivate();
+	} else {
+	    call-script Activate();
+	}
+}
+
+Create()
+{
+}
+
+
+#define BASEPIECE base
+#define MAXTILT 0
+#include "../unit_hitbyweaponid_and_smoke.h"
+
+Activate()
+{
+	show jam;
+	spin dish around y-axis speed <60.010989> accelerate <1>;
+	spin turret around y-axis speed <120.027473> accelerate <2>;
+}
+
+Deactivate()
+{
+	hide jam;
+	stop-spin dish around y-axis decelerate <4>;
+	stop-spin turret around y-axis decelerate <5>;
+}
+
+
+Killed(severity, corpsetype)
+{
+	if( severity <= 25 )
+	{
+		corpsetype = 1 ;
+		explode base type BITMAPONLY | NOHEATCLOUD;
+		explode dish type BITMAPONLY | NOHEATCLOUD;
+		explode turret type FIRE | SMOKE | FALL | NOHEATCLOUD;
+		return(corpsetype);
+	}
+	if( severity <= 50 )
+	{
+		corpsetype = 2 ;
+		explode base type BITMAPONLY | NOHEATCLOUD;
+		explode turret type FIRE | SMOKE | FALL | NOHEATCLOUD;
+		return(corpsetype);
+	}
+	if( severity <= 99 )
+	{
+		corpsetype = 3 ;
+		explode base type BITMAPONLY | NOHEATCLOUD;
+		explode dish type BITMAPONLY | NOHEATCLOUD;
+		explode turret type EXPLODE_ON_HIT | FIRE | SMOKE | FALL | NOHEATCLOUD;
+		return(corpsetype);
+	}
+	corpsetype = 3 ;
+		explode base type BITMAPONLY | NOHEATCLOUD;
+		explode dish type EXPLODE_ON_HIT | FIRE | FALL | NOHEATCLOUD;
+		explode turret type EXPLODE_ON_HIT | FIRE | SMOKE | FALL | NOHEATCLOUD;
+	return corpsetype;
+}

@@ -1,0 +1,177 @@
+local widget = widget ---@type Widget
+
+function widget:GetInfo()
+	return {
+		name = "Ignore List API",
+		desc = "This widget will block map draw commands from ignored players + provide API for other widgets to check if a player is ignored",
+		author = "Bluestone, Floris",
+		date = "June 2014",
+		license = "GNU GPL, v2 or later",
+		layer = 0,
+		enabled = true,
+	}
+end
+
+-- Localized Spring API for performance
+local spEcho = Spring.Echo
+
+local playernames = {} -- current game: playername to playerID
+local validAccounts = {} -- current game: accountID to playername
+local ignoredAccounts = {} -- globally ignored: accountID to playername
+local ignoredAccountsAndNames = {} -- indexes by accountID and playername
+local ignoredPlayers = {} -- old playernames method, we'll keep storing and try to convert this to the new ignoredAccounts table based on accountID
+
+-- late rejoined/added spectators dont get a their own accountid but the last assigned playerID one instead so we'll have to ignore those
+-- THIS IS FUCKED UP BUT IT IS WHAT IT IS SOMEHOW
+local playerList = Spring.GetPlayerList()
+for _, playerID in ipairs(playerList) do
+	local name, _, _, _, _, _, _, _, _, _, playerInfo = Spring.GetPlayerInfo(playerID)
+	accountID = (playerInfo and playerInfo.accountid) and tonumber(playerInfo.accountid)
+	if accountID and not validAccounts[accountID] then
+		validAccounts[accountID] = name
+	end
+end
+
+local function processPlayerlist()
+	local playerList = Spring.GetPlayerList()
+	for _, playerID in ipairs(playerList) do
+		local name, _, _, _, _, _, _, _, _, _, playerInfo = Spring.GetPlayerInfo(playerID)
+		if name and name ~= "" then
+			playernames[name] = playerID
+		end
+		local accountID = (playerInfo and playerInfo.accountid) and tonumber(playerInfo.accountid) or nil
+		if accountID and validAccounts[accountID] then
+			-- when a playername was ignored by the old widget method or when their accountID wasn't known (being late rejoining spectator)
+			if name and name ~= "" and ignoredPlayers[name] then
+				ignoredPlayers[name] = nil
+				ignoredAccounts[accountID] = name
+			end
+			if ignoredAccounts[accountID] then
+				ignoredAccountsAndNames[accountID] = playerID
+				if name and name ~= "" then
+					ignoredAccountsAndNames[name] = playerID
+				end
+			end
+		end
+	end
+end
+
+local function ignoreAccount(accountID)
+	if type(tonumber(accountID)) == "number" then
+		accountID = tonumber(accountID)
+		if not ignoredAccounts[accountID] and validAccounts[accountID] then
+			-- ignore accountID
+			local resolvedName = (WG.playernames and WG.playernames.getPlayername)
+					and WG.playernames.getPlayername(_, accountID)
+				or ""
+			if resolvedName == "" then
+				resolvedName = validAccounts[accountID] or ""
+			end
+			ignoredAccounts[accountID] = resolvedName
+			if resolvedName ~= "" then
+				ignoredAccountsAndNames[accountID] = resolvedName
+			end
+			-- ignore playerinfo name
+			local validName = validAccounts[accountID]
+			local playerID = validName and playernames[validName]
+			if validName and validName ~= "" then
+				ignoredAccountsAndNames[validName] = playerID or true
+			end
+			-- ignore aliassed name
+			if resolvedName ~= "" then
+				ignoredAccountsAndNames[resolvedName] = playerID or true
+			end
+			spEcho(BAR.I18N("ui.ignore.ignored", { name = resolvedName, accountID = accountID }))
+		end
+	elseif accountID ~= "" then -- if accountID wasn't known and player name was supplied instead
+		local name = accountID
+		if playernames[name] then
+			ignoredPlayers[name] = true
+			ignoredAccountsAndNames[name] = playernames[name]
+			spEcho(BAR.I18N("ui.ignore.ignored", { name = name, accountID = BAR.I18N("ui.ignore.unknown") }))
+		end
+	end
+end
+
+local function unignoreAccount(accountID)
+	if type(tonumber(accountID)) == "number" then
+		accountID = tonumber(accountID)
+		if ignoredAccounts[accountID] and validAccounts[accountID] then
+			spEcho(BAR.I18N("ui.ignore.unignored", { name = ignoredAccounts[accountID], accountID = accountID }))
+			ignoredAccountsAndNames[accountID] = nil
+			ignoredAccountsAndNames[ignoredAccounts[accountID]] = nil
+			ignoredAccountsAndNames[validAccounts[accountID]] = nil
+			ignoredAccounts[accountID] = nil
+		end
+	elseif accountID ~= "" then -- if accountID wasn't known and player name was supplied instead
+		local name = accountID
+		if playernames[name] then
+			ignoredPlayers[name] = nil
+			ignoredAccountsAndNames[name] = nil
+			spEcho(BAR.I18N("ui.ignore.unignored", { name = name, accountID = BAR.I18N("ui.ignore.unknown") }))
+		end
+	end
+end
+
+local function toggleignoreCmd(_, _, params)
+	for i = 1, #params do
+		if params[i] then
+			if ignoredAccounts[tonumber(params[i])] or ignoredPlayers[params[i]] then
+				unignoreAccount(params[i])
+			else
+				ignoreAccount(params[i])
+			end
+		end
+	end
+end
+
+function widget:Initialize()
+	-- add all other ignored account names that aren't in the current game but might be in the lobby
+	for accountID, name in pairs(ignoredAccounts) do
+		local pname = WG.playernames and WG.playernames.getPlayername(_, accountID, true)
+		local displayName = pname and pname or name
+		if displayName and displayName ~= "" and not ignoredAccountsAndNames[accountID] then -- if not already added/in the game
+			ignoredAccountsAndNames[displayName] = true
+		end
+	end
+	processPlayerlist()
+	WG.ignoredAccounts = ignoredAccountsAndNames
+	widgetHandler:AddAction("toggleignore", toggleignoreCmd, nil, "t")
+end
+
+function widget:Shutdown()
+	widgetHandler:RemoveAction("toggleignore")
+	WG.ignoredAccounts = nil
+end
+
+function widget:PlayerChanged()
+	processPlayerlist()
+end
+
+function widget:MapDrawCmd(playerID, cmdType, startx, starty, startz, a, b, c)
+	local _, _, _, _, _, _, _, _, _, _, playerInfo = Spring.GetPlayerInfo(playerID, false)
+	local accountID = (playerInfo and playerInfo.accountid) and tonumber(playerInfo.accountid) or nil
+	if accountID and ignoredAccounts[accountID] then
+		return true
+	end
+	return nil
+end
+
+function widget:GetConfigData()
+	ignoredPlayers[1] = ignoredAccounts
+	return ignoredPlayers
+end
+
+function widget:SetConfigData(data)
+	ignoredAccounts = data[1] and data[1] or {}
+	-- clean out any empty string keys from persisted data
+	ignoredAccounts[""] = nil
+	data[1] = nil
+	ignoredPlayers = data
+	ignoredPlayers[""] = nil
+	for name, _ in pairs(ignoredPlayers) do
+		if name ~= "" and not ignoredAccountsAndNames[name] then
+			ignoredAccountsAndNames[name] = true
+		end
+	end
+end

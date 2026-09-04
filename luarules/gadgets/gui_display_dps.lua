@@ -1,0 +1,485 @@
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+--
+--  file:    gui_display_dps.lua
+--  brief:   Displays DPS done to your allies units
+--  author:  Owen Martindell
+--
+--  Copyright (C) 2008.
+--  Licensed under the terms of the GNU GPL, v2 or later.
+--
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
+local gadget = gadget ---@type Gadget
+
+function gadget:GetInfo()
+	return {
+		name = "Display DPS",
+		desc = "Displays damage per second done to visible units",
+		author = "TheFatController",
+		date = "May 27, 2008",
+		license = "GNU GPL, v2 or later",
+		layer = 0,
+		enabled = true,
+	}
+end
+
+if gadgetHandler:IsSyncedCode() then
+	return
+end
+
+local enabled = (tonumber(Spring.GetConfigInt("DisplayDPS", 0) or 0) == 1)
+
+local fontfile = "fonts/" .. Spring.GetConfigString("bar_font2", "Exo2-SemiBold.otf")
+local vsx, vsy = Spring.GetViewGeometry()
+local fontfileScale = 1 + (vsx * vsy / 5700000)
+local fontfileSize = 25
+local fontfileOutlineSize = 6
+local fontfileOutlineStrength = 1.3
+local font =
+	gl.LoadFont(fontfile, fontfileSize * fontfileScale, fontfileOutlineSize * fontfileScale, fontfileOutlineStrength)
+
+local GetUnitDefID = Spring.GetUnitDefID
+local GetUnitDefDimensions = Spring.GetUnitDefDimensions
+local AreTeamsAllied = Spring.AreTeamsAllied
+local GetGameSpeed = Spring.GetGameSpeed
+local GetGameSeconds = Spring.GetGameSeconds
+local GetUnitViewPosition = Spring.GetUnitViewPosition
+local IsUnitInView = Spring.IsUnitInView
+
+local glTranslate = gl.Translate
+local glBillboard = gl.Billboard
+local glDepthMask = gl.DepthMask
+local glDepthTest = gl.DepthTest
+local glAlphaTest = gl.AlphaTest
+local glBlending = gl.Blending
+local glDrawFuncAtUnit = gl.DrawFuncAtUnit
+local glPushMatrix = gl.PushMatrix
+local glPopMatrix = gl.PopMatrix
+local glCallList = gl.CallList
+local IsGUIHidden = Spring.IsGUIHidden
+local math_floor = math.floor
+local math_ceil = math.ceil
+local math_random = math.random
+local math_max = math.max
+local math_min = math.min
+local damageSortFunc = function(m1, m2)
+	return m1.damage < m2.damage
+end
+
+local GL_GREATER = GL.GREATER
+local GL_SRC_ALPHA = GL.SRC_ALPHA
+local GL_ONE = GL.ONE
+local GL_ONE_MINUS_SRC_ALPHA = GL.ONE_MINUS_SRC_ALPHA
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
+local damageTable = {}
+local unitParalyzeDmg = {}
+local unitParalyzeTime = {}
+local unitDamageDmg = {}
+local unitDamageTime = {}
+local deadList = {}
+local lastTime = 0
+local paused = false
+local changed = false
+local heightList = {}
+local drawTextLists = {}
+local drawTextListsDeath = {}
+local drawTextListsEmp = {}
+local myTeamID = Spring.GetLocalTeamID()
+local _, fullview = Spring.GetSpectatingState()
+local chobbyInterface
+local ignoreDamageTypes = {}
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
+-- Do not display death-reason damage types which typically use overkill damage.
+ignoreDamageTypes[Game.envDamageTypes.AircraftCrashed] = true
+ignoreDamageTypes[Game.envDamageTypes.Killed] = true
+-- ignoreDamageTypes[Game.envDamageTypes.Crushed] = true -- Seems like an exception.
+ignoreDamageTypes[Game.envDamageTypes.Reclaimed] = true
+ignoreDamageTypes[Game.envDamageTypes.TransportKilled] = true
+ignoreDamageTypes[Game.envDamageTypes.FactoryKilled] = true
+ignoreDamageTypes[Game.envDamageTypes.FactoryCancel] = true
+ignoreDamageTypes[Game.envDamageTypes.SetNegativeHealth] = true
+ignoreDamageTypes[Game.envDamageTypes.OutOfBounds] = true
+ignoreDamageTypes[Game.envDamageTypes.KilledByCheat] = true
+ignoreDamageTypes[Game.envDamageTypes.KilledByLua] = true
+
+-- We likely want to ignore most self-damages used to control e.g. build progress.
+ignoreDamageTypes[Game.envDamageTypes.Kamikaze] = true
+ignoreDamageTypes[Game.envDamageTypes.SelfD] = true
+ignoreDamageTypes[Game.envDamageTypes.ConstructionDecay] = true
+ignoreDamageTypes[Game.envDamageTypes.TurnedIntoFeature] = true -- end of build with unitDef->isFeature
+ignoreDamageTypes[Game.envDamageTypes.UnitScript] = true -- likely to be self-damage?
+
+function gadget:ViewResize(n_vsx, n_vsy)
+	vsx, vsy = Spring.GetViewGeometry()
+	local fontScale = 1 + (vsx * vsy / 5700000)
+	gadget:Shutdown()
+	font = gl.LoadFont(fontfile, 52 * fontScale, 17 * fontScale, 1.3)
+end
+
+local function unitHeight(unitDefID)
+	if not heightList[unitDefID] then
+		heightList[unitDefID] = (GetUnitDefDimensions(unitDefID).height * 0.9)
+	end
+	return heightList[unitDefID]
+end
+
+function gadget:UnitFinished(unitID, unitDefID, unitTeam)
+	if not enabled then
+		return
+	end
+	if not heightList[unitDefID] then
+		heightList[unitDefID] = (GetUnitDefDimensions(unitDefID).height * 0.9)
+	end
+end
+
+local function getTextSize(damage, paralyze)
+	--if paralyze then sizeMod = 2.25 end
+	return 15 + math_floor(3 * (2 * (1 - (100 / (100 + damage / 10)))))
+end
+
+local function displayDamage(unitID, unitDefID, damage, paralyze)
+	damageTable[1] = {
+		unitID = unitID,
+		damage = math_ceil(damage - 0.5),
+		height = unitHeight(unitDefID),
+		offset = 10 - math_random(0, 12),
+		textSize = getTextSize(damage, paralyze),
+		heightOffset = 0,
+		lifeSpan = 1,
+		paralyze = paralyze,
+		fadeTime = math_max((0.03 - (damage / 333333)), 0.015),
+		riseTime = (math_min((damage / 2500), 2) + 1) / 3,
+	}
+end
+
+function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerDefID, attackerTeam, weaponDefID)
+	if not enabled then
+		return
+	end
+	if unitDamageDmg[unitID] then
+		local ux, uy, uz = GetUnitViewPosition(unitID)
+		if ux ~= nil then
+			local damage = math_ceil(unitDamageDmg[unitID] - 0.5)
+			deadList[1] = {
+				x = ux,
+				y = uy + unitHeight(unitDefID),
+				z = uz,
+				lifeSpan = 1,
+				fadeTime = math_max((0.03 - (damage / 333333)), 0.015) * 0.5,
+				riseTime = (math_min((damage / 2500), 2) + 1) / 3,
+				damage = damage,
+				textSize = getTextSize(damage, false),
+				red = true,
+			}
+		end
+	end
+	unitDamageDmg[unitID] = nil
+	unitDamageTime[unitID] = nil
+	unitParalyzeDmg[unitID] = nil
+	unitParalyzeTime[unitID] = nil
+	for i, v in pairs(damageTable) do
+		if v.unitID == unitID then
+			if not v.paralyze then
+				local ux, uy, uz = GetUnitViewPosition(unitID)
+				if ux ~= nil then
+					deadList[1] = {
+						x = ux + v.offset,
+						y = uy + v.height + v.heightOffset,
+						z = uz,
+						lifeSpan = v.lifeSpan,
+						fadeTime = v.fadeTime * 2.5,
+						riseTime = v.riseTime * 0.9,
+						damage = v.damage,
+						textSize = v.textSize,
+						red = false,
+					}
+				end
+			end
+			damageTable[i] = nil
+		end
+	end
+end
+
+function gadget:UnitTaken(unitID, unitDefID, oldTeam, newTeam)
+	if not enabled then
+		return
+	end
+	if not AreTeamsAllied(oldTeam, newTeam) then
+		gadget:UnitDestroyed(unitID, unitDefID, newTeam)
+	end
+end
+
+function gadget:UnitDamaged(
+	unitID,
+	unitDefID,
+	unitTeam,
+	damage,
+	paralyzer,
+	weaponDefID,
+	projectileID,
+	attackerID,
+	attackerDefID,
+	attackerTeam
+)
+	if not enabled then
+		return
+	end
+
+	if damage < 1.5 or ignoreDamageTypes[weaponDefID] then
+		return
+	end
+
+	if not fullview and not CallAsTeam(myTeamID, IsUnitInView, unitID) then
+		return
+	end
+
+	if paralyzer and unitParalyzeDmg[unitID] then
+		unitParalyzeDmg[unitID] = unitParalyzeDmg[unitID] + damage
+		return
+	elseif unitDamageDmg[unitID] then
+		unitDamageDmg[unitID] = unitDamageDmg[unitID] + damage
+		return
+	end
+
+	if paralyzer then
+		unitParalyzeDmg[unitID] = damage
+		unitParalyzeTime[unitID] = lastTime + 0.1
+	else
+		unitDamageDmg[unitID] = damage
+		unitDamageTime[unitID] = lastTime + 0.1
+	end
+end
+
+local function calcDPS(dmgTable, timeTable, paralyze, theTime)
+	for unitID, t in pairs(timeTable) do
+		if t < theTime then
+			local unitDefID = GetUnitDefID(unitID)
+			local dmg = dmgTable[unitID]
+			if unitDefID and dmg and (dmg >= 1) then
+				displayDamage(unitID, unitDefID, dmg, paralyze)
+				dmgTable[unitID] = 0
+				timeTable[unitID] = theTime + 1
+				changed = true
+			else
+				dmgTable[unitID] = nil
+				timeTable[unitID] = nil
+			end
+		end
+	end
+end
+
+local function drawDeathDPS(damage, ux, uy, uz, textSize, red, alpha)
+	glPushMatrix()
+	glTranslate(ux, uy, uz)
+	glBillboard()
+	gl.MultiTexCoord(1, 0.25 + (0.5 * alpha))
+
+	if red then
+		if drawTextListsDeath[damage] == nil then
+			drawTextListsDeath[damage] = gl.CreateList(function()
+				font:Begin()
+				font:SetTextColor(1, 0.5, 0.5)
+				font:Print(damage, 0, 0, textSize, "cnO")
+				font:End()
+			end) -- rare error on this line: "table index is NaN"
+		end
+		glCallList(drawTextListsDeath[damage])
+	else
+		if drawTextLists[damage] == nil then
+			drawTextLists[damage] = gl.CreateList(function()
+				font:Begin()
+				font:SetTextColor(1, 1, 1)
+				font:Print(damage, 0, 0, textSize, "cnO")
+				font:End()
+			end)
+		end
+		glCallList(drawTextLists[damage])
+	end
+
+	glPopMatrix()
+end
+
+local function DrawUnitFunc(yshift, xshift, damage, textSize, alpha, paralyze)
+	glTranslate(xshift, yshift, 0)
+	glBillboard()
+	gl.MultiTexCoord(1, 0.25 + (0.5 * alpha))
+	if paralyze then
+		if drawTextListsEmp[damage] == nil then
+			drawTextListsEmp[damage] = gl.CreateList(function()
+				font:Begin()
+				font:SetTextColor(0.5, 0.5, 1)
+				font:Print(damage, 0, 0, textSize, "cnO")
+				font:End()
+			end)
+		end
+		glCallList(drawTextListsEmp[damage])
+	else
+		if drawTextLists[damage] == nil then
+			drawTextLists[damage] = gl.CreateList(function()
+				font:Begin()
+				font:SetTextColor(1, 1, 1)
+				font:Print(damage, 0, 0, textSize, "cnO")
+				font:End()
+			end)
+		end
+		glCallList(drawTextLists[damage])
+	end
+end
+
+function gadget:PlayerChanged(playerID)
+	myTeamID = Spring.GetLocalTeamID()
+	_, fullview = Spring.GetSpectatingState()
+end
+
+local LOA_B1 = string.byte("L") -- 76, first byte of 'LobbyOverlayActive'
+
+function gadget:RecvLuaMsg(msg, playerID)
+	if #msg < 18 or string.byte(msg, 1) ~= LOA_B1 or msg:sub(1, 18) ~= "LobbyOverlayActive" then
+		return
+	end
+	chobbyInterface = (msg:sub(1, 19) == "LobbyOverlayActive1")
+end
+
+function checkEnabled()
+	local prevEnabled = enabled
+	enabled = (tonumber(Spring.GetConfigInt("DisplayDPS", 0) or 0) == 1)
+	if prevEnabled ~= enabled then
+		damageTable = {}
+		unitParalyze = {}
+		unitDamage = {}
+		deadList = {}
+		lastTime = 0
+		changed = false
+		heightList = {}
+		drawTextLists = {}
+		drawTextListsDeath = {}
+		drawTextListsEmp = {}
+		if enabled then
+			gadgetHandler:UpdateCallIn("UnitDamaged")
+			gadgetHandler:UpdateCallIn("UnitTaken")
+			gadgetHandler:UpdateCallIn("UnitDestroyed")
+			gadgetHandler:UpdateCallIn("UnitFinished")
+		else
+			gadgetHandler:RemoveCallIn("UnitDamaged")
+			gadgetHandler:RemoveCallIn("UnitTaken")
+			gadgetHandler:RemoveCallIn("UnitDestroyed")
+			gadgetHandler:RemoveCallIn("UnitFinished")
+		end
+	end
+end
+
+local sec = 0
+function gadget:Update()
+	sec = sec + Spring.GetLastUpdateSeconds()
+	if sec > 2 then
+		sec = 0
+		checkEnabled()
+	end
+end
+
+function gadget:DrawWorld()
+	if not enabled then
+		return
+	end
+	if chobbyInterface then
+		return
+	end
+	if IsGUIHidden() then
+		return
+	end
+
+	local theTime = GetGameSeconds()
+	if theTime ~= lastTime then
+		if next(unitDamageTime) then
+			calcDPS(unitDamageDmg, unitDamageTime, false, theTime)
+		end
+		if next(unitParalyzeTime) then
+			calcDPS(unitParalyzeDmg, unitParalyzeTime, true, theTime)
+		end
+		if changed then
+			table.sort(damageTable, damageSortFunc)
+			changed = false
+		end
+	end
+	lastTime = theTime
+
+	if not next(damageTable) and not next(deadList) then
+		return
+	end
+
+	_, _, paused = GetGameSpeed()
+	glDepthMask(true)
+	glDepthTest(true)
+	glAlphaTest(GL_GREATER, 0)
+	glBlending(GL_SRC_ALPHA, GL_ONE)
+	gl.Texture(1, "LuaUI/images/gradient_alpha_2.png")
+
+	for i, damage in pairs(damageTable) do
+		if damage.lifeSpan <= 0 then
+			damageTable[i] = nil
+		else
+			if fullview or CallAsTeam(myTeamID, IsUnitInView, damage.unitID) then
+				glDrawFuncAtUnit(
+					damage.unitID,
+					false,
+					DrawUnitFunc,
+					(damage.height + damage.heightOffset),
+					damage.offset,
+					damage.damage,
+					damage.textSize,
+					damage.lifeSpan,
+					damage.paralyze
+				)
+			end
+			if not paused then
+				--if damage.paralyze then
+				--  damage.lifeSpan = (damage.lifeSpan - 0.05)
+				--  damage.textSize = (damage.textSize + 0.2)
+				--else
+				damage.heightOffset = (damage.heightOffset + damage.riseTime)
+				if damage.heightOffset > 25 then
+					damage.lifeSpan = (damage.lifeSpan - damage.fadeTime)
+				end
+				--end
+			end
+		end
+	end
+	for i, death in pairs(deadList) do
+		if death.lifeSpan <= 0 then
+			deadList[i] = nil
+		elseif type(death.damage) == "number" then -- checking this cause someone got an error that this was being NaN ...UPDATE: STILL ERRORS REGARDLESS
+			drawDeathDPS(death.damage, death.x, death.y, death.z, death.textSize, death.red, death.lifeSpan)
+			if not paused then
+				death.y = (death.y + death.riseTime)
+				death.lifeSpan = (death.lifeSpan - death.fadeTime)
+			end
+		end
+	end
+
+	gl.Texture(1, false)
+	glBlending(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+	glAlphaTest(false)
+	glDepthTest(false)
+	glDepthMask(false)
+end
+
+function gadget:Shutdown()
+	for k, _ in pairs(drawTextLists) do
+		gl.DeleteList(drawTextLists[k])
+	end
+	for k, _ in pairs(drawTextListsDeath) do
+		gl.DeleteList(drawTextListsDeath[k])
+	end
+	for k, _ in pairs(drawTextListsEmp) do
+		gl.DeleteList(drawTextListsEmp[k])
+	end
+	gl.DeleteFont(font)
+end
