@@ -131,7 +131,7 @@ return {
 				tolerance = 4000,
 				turnrate = 5500,
 				weaponacceleration = 100,
-				weapontimer = 5.5,
+				weapontimer = 21600,
 				weapontype = "StarburstLauncher",
 				weaponvelocity = 1600,
 				customparams = {
@@ -140,8 +140,8 @@ return {
 					nuclear = 1,
 				},
 				damage = {
-					commanders = 3000,
-					default = 15000,
+					commanders = 1000000,
+					default = 1000000,
 				},
 			},
 			nuclear_launch = {
